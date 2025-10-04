@@ -51,6 +51,7 @@ func main() {
 	var githubUsername string
 	var githubToken string
 	var githubEmail string
+	var baseDomain string
 
 	flag.StringVar(&metricsAddr, "metrics-bind-address", ":8080", "The address the metric endpoint binds to.")
 	flag.StringVar(&probeAddr, "health-probe-bind-address", ":8081", "The address the probe endpoint binds to.")
@@ -63,6 +64,7 @@ func main() {
 	flag.StringVar(&githubUsername, "github-username", os.Getenv("GITHUB_USERNAME"), "GitHub username for container registry")
 	flag.StringVar(&githubToken, "github-token", os.Getenv("GITHUB_TOKEN"), "GitHub token for container registry")
 	flag.StringVar(&githubEmail, "github-email", os.Getenv("GITHUB_EMAIL"), "GitHub email for container registry")
+	flag.StringVar(&baseDomain, "base-domain", getEnvOrDefault("BASE_DOMAIN", "shop.pilab.hu"), "Base domain for default PR domains (e.g., shop.pilab.hu)")
 
 	opts := zap.Options{
 		Development: true,
@@ -109,6 +111,7 @@ func main() {
 		GitHubUsername: githubUsername,
 		GitHubToken:    githubToken,
 		GitHubEmail:    githubEmail,
+		BaseDomain:     baseDomain,
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "PRStack")
 		os.Exit(1)

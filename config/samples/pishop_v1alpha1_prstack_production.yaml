@@ -12,7 +12,7 @@ spec:
   imageTag: "v1.5.2"
   
   # Custom domain for production tenant
-  # This will be used for ingress instead of the default pattern
+  # This will be used for ingress instead of the default pattern (pr-{prNumber}.{BASE_DOMAIN})
   customDomain: "magicshop.hu"
   
   # TLS secret name for HTTPS (required for production)
