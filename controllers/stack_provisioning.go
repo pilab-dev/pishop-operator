@@ -377,7 +377,7 @@ func getImageTag(prStack *pishopv1alpha1.PRStack, serviceName string) string {
 func (r *PRStackReconciler) createIngress(prStack *pishopv1alpha1.PRStack, namespace, serviceName, pathPrefix string) *networkingv1.Ingress {
 	hostname := r.getDomain(prStack)
 
-	return &networkingv1.Ingress{
+	ingress := &networkingv1.Ingress{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      serviceName,
 			Namespace: namespace,
@@ -412,4 +412,16 @@ func (r *PRStackReconciler) createIngress(prStack *pishopv1alpha1.PRStack, names
 			},
 		},
 	}
+
+	// Add TLS configuration if a TLS secret is specified
+	if prStack.Spec.IngressTlsSecretName != "" {
+		ingress.Spec.TLS = []networkingv1.IngressTLS{
+			{
+				Hosts:      []string{hostname},
+				SecretName: prStack.Spec.IngressTlsSecretName,
+			},
+		}
+	}
+
+	return ingress
 }

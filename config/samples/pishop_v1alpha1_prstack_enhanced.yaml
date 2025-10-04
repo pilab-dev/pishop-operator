@@ -15,6 +15,11 @@ spec:
   # Examples: "gyurushop.hu", "magicshop.hu", "tenant1.example.com"
   customDomain: "gyurushop.hu"
   
+  # TLS secret name for HTTPS (optional - no TLS if not specified)
+  # The secret should contain 'tls.crt' and 'tls.key' keys
+  # Examples: "gyurushop-tls", "magicshop-tls"
+  ingressTlsSecretName: "gyurushop-tls"
+  
   # Active controls whether the stack is running (true) or de-provisioned (false)
   # When false: all deployments scaled to 0 replicas
   # When true: all deployments scaled to 1 replica with fresh images
