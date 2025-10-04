@@ -83,6 +83,7 @@ type PRStackReconciler struct {
 	GitHubToken    string
 	GitHubUsername string
 	GitHubEmail    string
+	BaseDomain     string
 }
 
 //+kubebuilder:rbac:groups=shop.pilab.hu,resources=prstacks,verbs=get;list;watch;create;update;patch;delete
@@ -108,7 +109,7 @@ func (r *PRStackReconciler) getDomain(prStack *pishopv1alpha1.PRStack) string {
 	if prStack.Spec.CustomDomain != "" {
 		return prStack.Spec.CustomDomain
 	}
-	return fmt.Sprintf("pr-%s.shop.pilab.hu", prStack.Spec.PRNumber)
+	return fmt.Sprintf("pr-%s.%s", prStack.Spec.PRNumber, r.BaseDomain)
 }
 
 // Reconcile is part of the main kubernetes reconciliation loop

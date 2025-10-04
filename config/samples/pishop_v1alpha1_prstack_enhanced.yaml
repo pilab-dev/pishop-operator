@@ -11,7 +11,7 @@ spec:
   # Examples: "v1.2.3", "latest", "pr-123-abc123"
   imageTag: "v1.2.3"
   
-  # Custom domain for ingress (optional - defaults to pr-{prNumber}.shop.pilab.hu)
+  # Custom domain for ingress (optional - defaults to pr-{prNumber}.{BASE_DOMAIN})
   # Examples: "gyurushop.hu", "magicshop.hu", "tenant1.example.com"
   customDomain: "gyurushop.hu"
   

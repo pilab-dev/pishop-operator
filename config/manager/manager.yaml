@@ -185,4 +185,6 @@ spec:
                 secretKeyRef:
                   name: mongodb-credentials
                   key: password
+            - name: BASE_DOMAIN
+              value: "shop.pilab.hu"
       terminationGracePeriodSeconds: 10
