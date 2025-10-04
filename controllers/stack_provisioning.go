@@ -375,7 +375,7 @@ func getImageTag(prStack *pishopv1alpha1.PRStack, serviceName string) string {
 
 // createIngress creates an ingress resource for the GraphQL service
 func (r *PRStackReconciler) createIngress(prStack *pishopv1alpha1.PRStack, namespace, serviceName, pathPrefix string) *networkingv1.Ingress {
-	hostname := fmt.Sprintf("pr-%s-shop-pilab-hu", prStack.Spec.PRNumber)
+	hostname := r.getDomain(prStack)
 
 	return &networkingv1.Ingress{
 		ObjectMeta: metav1.ObjectMeta{

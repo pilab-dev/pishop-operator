@@ -1,26 +1,26 @@
 apiVersion: shop.pilab.hu/v1alpha1
 kind: PRStack
 metadata:
-  name: prstack-sample-enhanced
+  name: prstack-production-tenant
   namespace: default
 spec:
-  # PR number for this stack
-  prNumber: "123"
+  # PR number for this stack (can be a tenant identifier for production)
+  prNumber: "tenant1"
   
-  # Custom image tag for services (optional - defaults to pr-{prNumber})
-  # Examples: "v1.2.3", "latest", "pr-123-abc123"
-  imageTag: "v1.2.3"
+  # Custom image tag for production services
+  # Use semantic versioning or stable tags for production
+  imageTag: "v1.5.2"
   
-  # Custom domain for ingress (optional - defaults to pr-{prNumber}.shop.pilab.hu)
-  # Examples: "gyurushop.hu", "magicshop.hu", "tenant1.example.com"
-  customDomain: "gyurushop.hu"
+  # Custom domain for production tenant
+  # This will be used for ingress instead of the default pattern
+  customDomain: "magicshop.hu"
   
   # Active controls whether the stack is running (true) or de-provisioned (false)
   # When false: all deployments scaled to 0 replicas
   # When true: all deployments scaled to 1 replica with fresh images
   active: true
   
-  # Services to deploy for this PR (optional - defaults to all services)
+  # Services to deploy for this tenant (optional - defaults to all services)
   services:
     - "product-service"
     - "cart-service"
@@ -36,13 +36,13 @@ spec:
     - "graphql-service"
   
   # Environment configuration
-  environment: "pr"
+  environment: "production"
   
-  # Resource limits for the PR environment
+  # Resource limits for the production environment (higher than PR environments)
   resourceLimits:
-    cpuLimit: "500m"
-    memoryLimit: "1Gi"
-    storageLimit: "10Gi"
+    cpuLimit: "1000m"
+    memoryLimit: "2Gi"
+    storageLimit: "50Gi"
   
   # Connection details (optional - uses operator defaults if not specified)
   mongoURI: "mongodb://mongodb.pishop-base.svc.cluster.local:27017"
@@ -50,3 +50,11 @@ spec:
   mongoPassword: "password"
   natsURL: "nats://nats.pishop-base.svc.cluster.local:4222"
   redisURL: "redis://redis.pishop-base.svc.cluster.local:6379"
+  
+  # Backup configuration for production
+  backupConfig:
+    enabled: true
+    schedule: "0 2 * * *"  # Daily at 2 AM
+    retentionDays: 30
+    storageClass: "fast-ssd"
+    storageSize: "100Gi"
