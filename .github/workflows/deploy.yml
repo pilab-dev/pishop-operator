@@ -16,11 +16,6 @@ on:
         required: false
         default: 'latest'
         type: string
-      skip_tests:
-        description: 'Skip running tests before deployment'
-        required: false
-        default: false
-        type: boolean
 
 env:
   GHCR_REGISTRY: ghcr.io
@@ -31,61 +26,13 @@ jobs:
   deploy:
     runs-on: self-hosted
     environment: ${{ github.event.inputs.environment }}
-    
+   
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
       with:
-        fetch-depth: 0
-    
-    - name: Set up Go
-      uses: actions/setup-go@v5
-      with:
-        go-version: '1.21'
-    
-    - name: Calculate version
-      id: version
-      run: |
-        if [ -n "${{ github.event.inputs.version }}" ] && [ "${{ github.event.inputs.version }}" != "latest" ]; then
-          VERSION="${{ github.event.inputs.version }}"
-        else
-          VERSION=$(git describe --tags --always --dirty 2>/dev/null || echo "dev")
-        fi
-        echo "VERSION=$VERSION" >> $GITHUB_OUTPUT
-        echo "COMMIT_SHA=$(git rev-parse --short HEAD)" >> $GITHUB_OUTPUT
-        echo "BUILD_DATE=$(date -u +'%Y-%m-%dT%H:%M:%SZ')" >> $GITHUB_OUTPUT
-        echo "IMAGE_TAG=$VERSION" >> $GITHUB_OUTPUT
-    
-    - name: Run tests
-      if: ${{ !github.event.inputs.skip_tests }}
-      run: |
-        make test
-    
-    - name: Generate manifests
-      run: |
-        make manifests
-    
-    - name: Verify image exists
-      run: |
-        IMAGE="${{ env.GHCR_REGISTRY }}/${{ env.GHCR_NAMESPACE }}/${{ env.GHCR_IMAGE_NAME }}:${{ steps.version.outputs.IMAGE_TAG }}"
-        echo "🔍 Verifying image exists: $IMAGE"
-        
-        # Check if image exists in GHCR
-        if ! docker manifest inspect "$IMAGE" >/dev/null 2>&1; then
-          echo "❌ Image $IMAGE not found in registry"
-          echo "Available tags:"
-          # This would require GHCR API access to list tags
-          echo "Please ensure the image exists or build it first"
-          exit 1
-        fi
-        echo "✅ Image found: $IMAGE"
-    
-    - name: Configure kubectl
-      run: |
-        # Ensure kubectl is configured for the target environment
-        echo "🔧 Configuring kubectl for ${{ github.event.inputs.environment }}"
-        # Add environment-specific kubectl configuration here if needed
-    
+        fetch-depth: 1
+
     - name: Deploy to Kubernetes
       env:
         MONGODB_URI: ${{ secrets.MONGODB_URI }}
@@ -98,9 +45,7 @@ jobs:
         echo "🚀 Starting deployment to ${{ github.event.inputs.environment }}..."
         echo "📋 Deployment Information:"
         echo "  Environment: ${{ github.event.inputs.environment }}"
-        echo "  Version: ${{ steps.version.outputs.VERSION }}"
-        echo "  Commit: ${{ steps.version.outputs.COMMIT_SHA }}"
-        echo "  Image: ${{ env.GHCR_REGISTRY }}/${{ env.GHCR_NAMESPACE }}/${{ env.GHCR_IMAGE_NAME }}:${{ steps.version.outputs.IMAGE_TAG }}"
+        echo "  Image: ${{ env.GHCR_REGISTRY }}/${{ env.GHCR_NAMESPACE }}/${{ env.GHCR_IMAGE_NAME }}:${{ inputs.version }}"
         echo ""
         
         # Create namespace if it doesn't exist
@@ -122,7 +67,7 @@ jobs:
         
         # Update deployment manifest with the correct image
         echo "🔄 Updating deployment manifest..."
-        sed -i.bak "s|image: .*|image: ${{ env.GHCR_REGISTRY }}/${{ env.GHCR_NAMESPACE }}/${{ env.GHCR_IMAGE_NAME }}:${{ steps.version.outputs.IMAGE_TAG }}|g" config/manager/manager.yaml
+        sed -i.bak "s|image: .*|image: ${{ env.GHCR_REGISTRY }}/${{ env.GHCR_NAMESPACE }}/${{ env.GHCR_IMAGE_NAME }}:${{ inputs.version }}|g" config/manager/manager.yaml
         rm -f config/manager/*.bak
         
         # Deploy the operator
@@ -160,9 +105,8 @@ jobs:
         echo "🎉 Deployment Summary"
         echo "==================="
         echo "Environment: ${{ github.event.inputs.environment }}"
-        echo "Version: ${{ steps.version.outputs.VERSION }}"
-        echo "Commit: ${{ steps.version.outputs.COMMIT_SHA }}"
-        echo "Image: ${{ env.GHCR_REGISTRY }}/${{ env.GHCR_NAMESPACE }}/${{ env.GHCR_IMAGE_NAME }}:${{ steps.version.outputs.IMAGE_TAG }}"
+        echo "Version: ${{ inputs.version }}"
+        echo "Image: ${{ env.GHCR_REGISTRY }}/${{ env.GHCR_NAMESPACE }}/${{ env.GHCR_IMAGE_NAME }}:${{ inputs.version }}"
         echo ""
         echo "📊 Status:"
         kubectl get pods -n pishop-operator-system -l control-plane=controller-manager
