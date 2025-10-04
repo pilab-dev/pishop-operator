@@ -103,6 +103,14 @@ func (r *PRStackReconciler) getNamespaceName(prNumber string) string {
 	return fmt.Sprintf(NamespacePattern, prNumber)
 }
 
+// getDomain returns the domain to use for ingress based on CustomDomain or default pattern
+func (r *PRStackReconciler) getDomain(prStack *pishopv1alpha1.PRStack) string {
+	if prStack.Spec.CustomDomain != "" {
+		return prStack.Spec.CustomDomain
+	}
+	return fmt.Sprintf("pr-%s.shop.pilab.hu", prStack.Spec.PRNumber)
+}
+
 // Reconcile is part of the main kubernetes reconciliation loop
 func (r *PRStackReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	log := ctrl.LoggerFrom(ctx)

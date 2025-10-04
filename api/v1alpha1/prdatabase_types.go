@@ -12,9 +12,13 @@ type PRStackSpec struct {
 	// PRNumber is the pull request number
 	PRNumber string `json:"prNumber"`
 
-	// ImageTag is the Docker image tag to use for services (e.g., pr-33-abc123)
+	// ImageTag is the Docker image tag to use for services (e.g., pr-33-abc123, v1.2.3, latest)
 	// If not specified, defaults to pr-{prNumber}
 	ImageTag string `json:"imageTag,omitempty"`
+
+	// CustomDomain is a custom domain for the ingress (e.g., gyurushop.hu, magicshop.hu)
+	// If not specified, defaults to pr-{prNumber}.shop.pilab.hu
+	CustomDomain string `json:"customDomain,omitempty"`
 
 	// Active controls whether the stack is active (replicas > 0) or inactive (replicas = 0)
 	// When false, all deployments are scaled to 0 replicas
