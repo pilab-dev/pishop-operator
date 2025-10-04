@@ -87,6 +87,13 @@ jobs:
         # Add environment-specific kubectl configuration here if needed
     
     - name: Deploy to Kubernetes
+      env:
+        MONGODB_URI: ${{ secrets.MONGODB_URI }}
+        MONGODB_USERNAME: ${{ secrets.MONGODB_USERNAME }}
+        MONGODB_PASSWORD: ${{ secrets.MONGODB_PASSWORD }}
+        GHCR_USERNAME: ${{ secrets.GHCR_USERNAME }}
+        GHCR_TOKEN: ${{ secrets.GHCR_TOKEN }}
+        GHCR_EMAIL: ${{ secrets.GHCR_EMAIL }}
       run: |
         echo "🚀 Starting deployment to ${{ github.event.inputs.environment }}..."
         echo "📋 Deployment Information:"
@@ -104,10 +111,14 @@ jobs:
         echo "📋 Applying CRDs..."
         kubectl apply -f config/crd/bases
         
-        # Apply secrets
+        # Apply secrets from templates
         echo "🔐 Applying secrets..."
-        kubectl apply -f config/manager/mongodb-credentials-secret.yaml
-        kubectl apply -f config/manager/github-credentials-secret.yaml
+        
+        # Create MongoDB credentials secret
+        envsubst < config/manager/mongodb-credentials-secret-template.yaml | kubectl apply -f -
+        
+        # Create GitHub credentials secret
+        envsubst < config/manager/github-credentials-secret-template.yaml | kubectl apply -f -
         
         # Update deployment manifest with the correct image
         echo "🔄 Updating deployment manifest..."

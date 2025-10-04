@@ -112,8 +112,20 @@ deploy: build ## Build static binary, create container, push to GHCR, and deploy
 	@kubectl apply -f config/crd/bases
 	@echo ""
 	@echo "🔐 Applying secrets..."
-	@kubectl apply -f config/manager/mongodb-credentials-secret.yaml
-	@kubectl apply -f config/manager/github-credentials-secret.yaml
+	@if [ -n "$$MONGODB_URI" ] && [ -n "$$MONGODB_USERNAME" ] && [ -n "$$MONGODB_PASSWORD" ]; then \
+		echo "Using environment variables for MongoDB secrets..."; \
+		envsubst < config/manager/mongodb-credentials-secret-template.yaml | kubectl apply -f -; \
+	else \
+		echo "⚠️  MongoDB environment variables not set, using local secret files..."; \
+		kubectl apply -f config/manager/mongodb-credentials-secret-local.yaml; \
+	fi
+	@if [ -n "$$GHCR_USERNAME" ] && [ -n "$$GHCR_TOKEN" ] && [ -n "$$GHCR_EMAIL" ]; then \
+		echo "Using environment variables for GitHub secrets..."; \
+		envsubst < config/manager/github-credentials-secret-template.yaml | kubectl apply -f -; \
+	else \
+		echo "⚠️  GitHub environment variables not set, using local secret files..."; \
+		kubectl apply -f config/manager/github-credentials-secret-local.yaml; \
+	fi
 	@echo ""
 	@echo "🚀 Deploying to Kubernetes..."
 	@kubectl apply -f config/manager/manager.yaml
@@ -176,6 +188,51 @@ restart: ## Restart the operator deployment.
 	@echo "⏳ Waiting for rollout to complete..."
 	@kubectl rollout status deployment/pishop-operator -n pishop-operator-system --timeout=300s
 	@echo "✅ Restart completed!"
+
+.PHONY: deploy-local
+deploy-local: ## Deploy using local secret files (for local development).
+	@echo "🚀 Starting local deployment workflow..."
+	@echo "📋 Build Information:"
+	@make info
+	@echo ""
+	@echo "🐳 Building Docker image with pre-built binary..."
+	@docker build -f Dockerfile.deploy -t $(GHCR_FULL_IMAGE) -t $(GHCR_REGISTRY)/$(GHCR_NAMESPACE)/$(GHCR_IMAGE_NAME):$(VERSION) .
+	@echo ""
+	@echo "🔐 Checking GHCR authentication..."
+	@if [ -n "$$GITHUB_TOKEN" ]; then \
+		echo "Logging in to GHCR..."; \
+		echo "$$GITHUB_TOKEN" | docker login $(GHCR_REGISTRY) -u $(GHCR_NAMESPACE) --password-stdin; \
+	else \
+		echo "⚠️  GITHUB_TOKEN not set, attempting push without login..."; \
+	fi
+	@echo ""
+	@echo "📤 Pushing to GHCR..."
+	@docker push $(GHCR_FULL_IMAGE)
+	@docker push $(GHCR_REGISTRY)/$(GHCR_NAMESPACE)/$(GHCR_IMAGE_NAME):$(VERSION)
+	@echo ""
+	@echo "🔄 Updating deployment manifests..."
+	@sed -i.bak 's|image: .*|image: $(GHCR_FULL_IMAGE)|g' config/manager/manager.yaml
+	@rm -f config/manager/*.bak
+	@echo ""
+	@echo "📦 Creating namespace and applying CRDs..."
+	@kubectl create namespace pishop-operator-system --dry-run=client -o yaml | kubectl apply -f -
+	@kubectl apply -f config/crd/bases
+	@echo ""
+	@echo "🔐 Applying local secrets..."
+	@kubectl apply -f config/manager/mongodb-credentials-secret.yaml
+	@kubectl apply -f config/manager/github-credentials-secret.yaml
+	@echo ""
+	@echo "🚀 Deploying to Kubernetes..."
+	@kubectl apply -f config/manager/manager.yaml
+	@echo ""
+	@echo "⏳ Waiting for rollout to complete..."
+	@kubectl rollout status deployment/pishop-operator -n pishop-operator-system --timeout=300s
+	@echo ""
+	@echo "✅ Local deployment completed successfully!"
+	@echo "📊 Pod status:"
+	@kubectl get pods -n pishop-operator-system -l control-plane=controller-manager
+	@echo ""
+	@echo "📝 To view logs: kubectl logs -f deployment/pishop-operator -n pishop-operator-system"
 
 ##@ Build Dependencies
 
