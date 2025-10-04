@@ -20,6 +20,11 @@ type PRStackSpec struct {
 	// If not specified, defaults to pr-{prNumber}.shop.pilab.hu
 	CustomDomain string `json:"customDomain,omitempty"`
 
+	// IngressTlsSecretName is the name of the Kubernetes secret containing the TLS certificate
+	// for the custom domain. The secret should contain 'tls.crt' and 'tls.key' keys.
+	// If not specified, no TLS configuration will be added to the ingress.
+	IngressTlsSecretName string `json:"ingressTlsSecretName,omitempty"`
+
 	// Active controls whether the stack is active (replicas > 0) or inactive (replicas = 0)
 	// When false, all deployments are scaled to 0 replicas
 	// When true, all deployments are scaled to 1 replica

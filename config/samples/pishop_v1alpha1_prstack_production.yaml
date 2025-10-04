@@ -15,6 +15,10 @@ spec:
   # This will be used for ingress instead of the default pattern
   customDomain: "magicshop.hu"
   
+  # TLS secret name for HTTPS (required for production)
+  # The secret should contain 'tls.crt' and 'tls.key' keys
+  ingressTlsSecretName: "magicshop-tls"
+  
   # Active controls whether the stack is running (true) or de-provisioned (false)
   # When false: all deployments scaled to 0 replicas
   # When true: all deployments scaled to 1 replica with fresh images

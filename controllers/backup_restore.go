@@ -468,9 +468,3 @@ func (b *BackupRestoreManager) CleanupOldBackups(ctx context.Context, prNumber s
 
 	return nil
 }
-
-// Helper functions
-func mustParseQuantity(s string) corev1.ResourceList {
-	// This is a simplified version - in production, use resource.MustParse
-	return corev1.ResourceList{}
-}

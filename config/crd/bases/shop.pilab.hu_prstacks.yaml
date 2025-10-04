@@ -98,6 +98,12 @@ spec:
                   ImageTag is the Docker image tag to use for services (e.g., pr-33-abc123, v1.2.3, latest)
                   If not specified, defaults to pr-{prNumber}
                 type: string
+              ingressTlsSecretName:
+                description: |-
+                  IngressTlsSecretName is the name of the Kubernetes secret containing the TLS certificate
+                  for the custom domain. The secret should contain 'tls.crt' and 'tls.key' keys.
+                  If not specified, no TLS configuration will be added to the ingress.
+                type: string
               mongoPassword:
                 type: string
               mongoURI:

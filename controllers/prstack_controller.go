@@ -594,38 +594,38 @@ func (r *PRStackReconciler) scaleDeployments(ctx context.Context, namespace stri
 	return nil
 }
 
-func (r *PRStackReconciler) forceRestartDeployments(ctx context.Context, namespace string) error {
-	log := ctrl.LoggerFrom(ctx)
+// func (r *PRStackReconciler) forceRestartDeployments(ctx context.Context, namespace string) error {
+// 	log := ctrl.LoggerFrom(ctx)
 
-	// List all deployments in the namespace
-	var deployments appsv1.DeploymentList
-	if err := r.List(ctx, &deployments, client.InNamespace(namespace)); err != nil {
-		return fmt.Errorf("failed to list deployments: %v", err)
-	}
+// 	// List all deployments in the namespace
+// 	var deployments appsv1.DeploymentList
+// 	if err := r.List(ctx, &deployments, client.InNamespace(namespace)); err != nil {
+// 		return fmt.Errorf("failed to list deployments: %v", err)
+// 	}
 
-	// Force restart each deployment by updating the pod template
-	for _, deployment := range deployments.Items {
-		log.Info("Force restarting deployment", "name", deployment.Name, "namespace", namespace)
+// 	// Force restart each deployment by updating the pod template
+// 	for _, deployment := range deployments.Items {
+// 		log.Info("Force restarting deployment", "name", deployment.Name, "namespace", namespace)
 
-		// Add or update an annotation to force pod restart
-		if deployment.Spec.Template.Annotations == nil {
-			deployment.Spec.Template.Annotations = make(map[string]string)
-		}
-		deployment.Spec.Template.Annotations[RestartAnnotation] = time.Now().Format(time.RFC3339)
+// 		// Add or update an annotation to force pod restart
+// 		if deployment.Spec.Template.Annotations == nil {
+// 			deployment.Spec.Template.Annotations = make(map[string]string)
+// 		}
+// 		deployment.Spec.Template.Annotations[RestartAnnotation] = time.Now().Format(time.RFC3339)
 
-		// Set image pull policy to Always to force image re-pull
-		for i := range deployment.Spec.Template.Spec.Containers {
-			deployment.Spec.Template.Spec.Containers[i].ImagePullPolicy = corev1.PullAlways
-		}
+// 		// Set image pull policy to Always to force image re-pull
+// 		for i := range deployment.Spec.Template.Spec.Containers {
+// 			deployment.Spec.Template.Spec.Containers[i].ImagePullPolicy = corev1.PullAlways
+// 		}
 
-		if err := r.Update(ctx, &deployment); err != nil {
-			log.Error(err, "Failed to restart deployment", "name", deployment.Name)
-			return fmt.Errorf("failed to restart deployment %s: %v", deployment.Name, err)
-		}
-	}
+// 		if err := r.Update(ctx, &deployment); err != nil {
+// 			log.Error(err, "Failed to restart deployment", "name", deployment.Name)
+// 			return fmt.Errorf("failed to restart deployment %s: %v", deployment.Name, err)
+// 		}
+// 	}
 
-	return nil
-}
+// 	return nil
+// }
 
 // shouldRolloutDeployments checks if deployments should be rolled out based on deployedAt timestamp
 func (r *PRStackReconciler) shouldRolloutDeployments(prStack *pishopv1alpha1.PRStack) bool {
