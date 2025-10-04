@@ -5,8 +5,8 @@ ARG VERSION=dev
 ARG COMMIT_SHA=unknown
 ARG BUILD_DATE
 
-LABEL org.opencontainers.image.source=https://github.com/pilab-dev/pi-shop-api
-LABEL org.opencontainers.image.description="PiShop API Backend (go)"
+LABEL org.opencontainers.image.source=https://github.com/pilab-dev/pishop-operator
+LABEL org.opencontainers.image.description="PiShop Operator for PR Environment Management"
 LABEL org.opencontainers.image.licenses="Progressive Innovation LAB. (c) 2025"
 LABEL org.opencontainers.image.authors="Paál Gyula <gyula@pilab.hu>"
 LABEL org.opencontainers.image.version=${VERSION}
