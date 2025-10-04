@@ -157,7 +157,9 @@ spec:
 
 ## TLS Configuration
 
-For production deployments with custom domains, configure TLS secrets:
+For production deployments with custom domains, configure TLS secrets. The operator supports both manual TLS secret creation and cert-manager integration.
+
+### Manual TLS Secret Creation
 
 ```yaml
 apiVersion: v1
@@ -170,7 +172,32 @@ data:
   tls.key: # Base64 encoded private key
 ```
 
-Then reference the secret in your PRStack:
+**Command-line creation:**
+```bash
+kubectl create secret tls magicshop-tls --cert=path/to/cert.crt --key=path/to/private.key
+```
+
+### Cert-Manager Integration
+
+For automatic certificate management, use cert-manager:
+
+```yaml
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: magicshop-tls
+spec:
+  secretName: magicshop-tls
+  issuerRef:
+    name: letsencrypt-prod
+    kind: ClusterIssuer
+  dnsNames:
+  - magicshop.hu
+```
+
+### PRStack TLS Configuration
+
+Reference the TLS secret in your PRStack:
 
 ```yaml
 apiVersion: shop.pilab.hu/v1alpha1
@@ -180,8 +207,89 @@ metadata:
 spec:
   prNumber: "tenant1"
   customDomain: "magicshop.hu"
+  ingressTlsSecretName: "magicshop-tls"  # TLS secret for HTTPS
+  active: true
+  environment: "production"
+```
+
+### TLS Secret Requirements
+
+The TLS secret must contain:
+- `tls.crt`: Base64 encoded certificate
+- `tls.key`: Base64 encoded private key
+
+### TLS Behavior
+
+- If `ingressTlsSecretName` is specified, the ingress will include TLS configuration
+- If `ingressTlsSecretName` is not specified, no TLS configuration is added
+- The `nginx.ingress.kubernetes.io/ssl-redirect: "true"` annotation is always set
+- TLS secrets must exist in the same namespace as the PRStack
+
+## PRStack Configuration Fields
+
+The PRStack CRD supports the following configuration fields:
+
+### Required Fields
+- `prNumber`: Pull request number or tenant identifier
+
+### Optional Fields
+- `imageTag`: Docker image tag for services (default: `pr-{prNumber}`)
+- `customDomain`: Custom domain for ingress (default: `pr-{prNumber}.{BASE_DOMAIN}`)
+- `ingressTlsSecretName`: TLS secret name for HTTPS (optional)
+- `active`: Controls whether stack is active (default: true)
+- `services`: List of services to deploy (default: all services)
+- `environment`: Environment configuration
+- `resourceLimits`: Resource constraints for the environment
+- `backupConfig`: Backup configuration for the environment
+
+### Example PRStack with All Features
+
+```yaml
+apiVersion: shop.pilab.hu/v1alpha1
+kind: PRStack
+metadata:
+  name: production-tenant
+spec:
+  # Required
+  prNumber: "tenant1"
+  
+  # Optional - Image and Domain
+  imageTag: "v1.5.2"
+  customDomain: "magicshop.hu"
   ingressTlsSecretName: "magicshop-tls"
-  # ... other fields
+  
+  # Optional - Control
+  active: true
+  environment: "production"
+  
+  # Optional - Services
+  services:
+    - "product-service"
+    - "cart-service"
+    - "order-service"
+    - "payment-service"
+    - "customer-service"
+    - "inventory-service"
+    - "notification-service"
+    - "discount-service"
+    - "checkout-service"
+    - "analytics-service"
+    - "auth-service"
+    - "graphql-service"
+  
+  # Optional - Resources
+  resourceLimits:
+    cpuLimit: "1000m"
+    memoryLimit: "2Gi"
+    storageLimit: "50Gi"
+  
+  # Optional - Backup
+  backupConfig:
+    enabled: true
+    schedule: "0 2 * * *"  # Daily at 2 AM
+    retentionDays: 30
+    storageClass: "fast-ssd"
+    storageSize: "100Gi"
 ```
 
 ## Validation
@@ -191,6 +299,7 @@ The operator validates configuration at startup:
 - `MONGO_URI` must be provided
 - `BASE_DOMAIN` must be a valid domain name
 - GitHub credentials are optional but recommended for image pulls
+- TLS secrets must exist if `ingressTlsSecretName` is specified
 
 ## Troubleshooting
 
@@ -199,6 +308,9 @@ The operator validates configuration at startup:
 1. **Invalid base domain**: Ensure `BASE_DOMAIN` is a valid domain name without protocol or path
 2. **MongoDB connection**: Verify `MONGO_URI` is accessible from the operator pod
 3. **GitHub authentication**: Check that `GITHUB_TOKEN` has appropriate permissions
+4. **TLS secret not found**: Ensure TLS secret exists in the same namespace as PRStack
+5. **Invalid TLS secret**: Verify secret contains `tls.crt` and `tls.key` keys
+6. **Custom domain DNS**: Ensure custom domain DNS points to ingress controller
 
 ### Logs
 
