@@ -12,6 +12,10 @@ env:
   GHCR_IMAGE_NAME: pishop-operator
   GHCR_TAG: latest
 
+permissions:
+  contents: read
+  packages: write
+
 jobs:
   build:
     runs-on: self-hosted

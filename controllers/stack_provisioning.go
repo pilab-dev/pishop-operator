@@ -6,7 +6,11 @@ import (
 	"encoding/json"
 	"fmt"
 
+	"k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/api/resource"
+	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	pishopv1alpha1 "go.pilab.hu/shop/pishop-provisioner/api/v1alpha1"
 	appsv1 "k8s.io/api/apps/v1"
@@ -296,6 +300,66 @@ func (r *PRStackReconciler) createServiceDeployment(ctx context.Context, prStack
 	}
 
 	log.Info("Successfully created deployment and service", "service", serviceName)
+	return nil
+}
+
+// getResourceRequirements returns resource requirements for a service based on PRStack configuration
+func (r *PRStackReconciler) getResourceRequirements(prStack *pishopv1alpha1.PRStack) corev1.ResourceRequirements {
+	limits := corev1.ResourceList{}
+	requests := corev1.ResourceList{}
+
+	if prStack.Spec.ResourceLimits != nil {
+		if prStack.Spec.ResourceLimits.CPULimit != "" {
+			limits["cpu"] = resource.MustParse(prStack.Spec.ResourceLimits.CPULimit)
+		}
+		if prStack.Spec.ResourceLimits.MemoryLimit != "" {
+			limits["memory"] = resource.MustParse(prStack.Spec.ResourceLimits.MemoryLimit)
+		}
+	} else {
+		// Default limits
+		limits["cpu"] = resource.MustParse("500m")
+		limits["memory"] = resource.MustParse("512Mi")
+	}
+
+	// Set zero requests to prevent cluster over-allocation
+	requests["cpu"] = resource.MustParse("0m")
+	requests["memory"] = resource.MustParse("0Mi")
+
+	return corev1.ResourceRequirements{
+		Limits:   limits,
+		Requests: requests,
+	}
+}
+
+// CreateOrUpdate creates or updates a Kubernetes resource
+func (r *PRStackReconciler) CreateOrUpdate(ctx context.Context, obj client.Object) error {
+	if err := r.Create(ctx, obj); err != nil {
+		if errors.IsAlreadyExists(err) {
+			return r.Update(ctx, obj)
+		}
+		return err
+	}
+	return nil
+}
+
+// createNamespace creates a namespace if it doesn't exist
+func (r *PRStackReconciler) createNamespace(ctx context.Context, namespaceName string) error {
+	namespace := &corev1.Namespace{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: namespaceName,
+		},
+	}
+
+	if err := r.Get(ctx, types.NamespacedName{Name: namespaceName}, namespace); err != nil {
+		if errors.IsNotFound(err) {
+			if err := r.Create(ctx, namespace); err != nil {
+				return err
+			}
+		} else {
+			return err
+		}
+	}
+
 	return nil
 }
 
