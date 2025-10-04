@@ -1,0 +1,12 @@
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: pishop-provisioner-manager-rolebinding
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: pishop-provisioner-manager-role
+subjects:
+- kind: ServiceAccount
+  name: pishop-provisioner-controller-manager
+  namespace: shop-pilab-hu

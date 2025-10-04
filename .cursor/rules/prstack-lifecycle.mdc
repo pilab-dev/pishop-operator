@@ -1,0 +1,88 @@
+---
+description: PRStack lifecycle management and reconciliation patterns
+---
+# PRStack Lifecycle Management
+
+## Lifecycle Phases
+
+The PRStack goes through these phases during its lifecycle:
+
+1. **Initialization** → 2. **Provisioning** → 3. **Deployment** → 4. **Running** → 5. **Cleaning**
+
+## Phase Transitions
+
+### Initialization Phase
+- Sets up initial status
+- Transitions to "Provisioning"
+- Triggered on first creation
+
+### Provisioning Phase
+- Creates namespace: `pr-{prNumber}-shop-pilab-hu`
+- Provisions MongoDB databases and users
+- Sets up NATS subjects
+- Configures Redis keyspaces
+- Creates MongoDB secret
+- Transitions to "Deployment"
+
+### Deployment Phase
+- Creates registry secret for GHCR
+- Deploys MongoDB, NATS, Redis resources
+- Creates service deployments
+- Updates service status
+- Transitions to "Running"
+
+### Running Phase
+- Monitors service health
+- Handles scaling based on `spec.active`
+- Checks for rollout requests via `spec.deployedAt`
+- Reconciles every 5 minutes
+
+### Cleaning Phase
+- Creates final backup (if enabled)
+- Cleans up Kubernetes resources
+- Removes MongoDB databases/users
+- Cleans NATS subjects
+- Removes Redis keyspaces
+- Removes finalizer for deletion
+
+## Active/Inactive State Management
+
+- **Active (`spec.active: true`)**: All deployments scaled to 1 replica
+- **Inactive (`spec.active: false`)**: All deployments scaled to 0 replicas
+- **Auto-expiration**: Stacks expire after 1 hour of inactivity
+- **Reactivation**: Setting `spec.active: true` updates `status.lastActiveAt`
+
+## Rollout Management
+
+Trigger deployment rollouts by updating `spec.deployedAt`:
+```bash
+TIMESTAMP=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+kubectl patch prstack pr-33 --type=merge -p "{\"spec\":{\"deployedAt\":\"$TIMESTAMP\"}}"
+```
+
+## Error Handling
+
+- Failed operations requeue after 30 seconds
+- Status messages provide error details
+- Kubernetes events notify users of issues
+- Cleanup continues even if some operations fail
+
+## Finalizer Management
+
+- Finalizer: `shop.pilab.hu/finalizer`
+- Added during first reconciliation
+- Removed only after complete cleanup
+- Prevents premature deletion
+
+## Status Fields
+
+Key status fields tracked:
+- `status.phase`: Current lifecycle phase
+- `status.message`: Human-readable status
+- `status.createdAt`: Initial creation time
+- `status.lastActiveAt`: Last activity timestamp
+- `status.lastDeployedAt`: Last rollout time
+- `status.services[]`: Individual service status
+- `status.mongodb`: MongoDB credentials and databases
+- `status.nats`: NATS configuration
+- `status.redis`: Redis configuration

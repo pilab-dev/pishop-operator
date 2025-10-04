@@ -1,0 +1,25 @@
+apiVersion: shop.pilab.hu/v1alpha1
+kind: PRStack
+metadata:
+  name: prstack-sample
+  namespace: default
+spec:
+  prNumber: "123"
+  environment: "development"
+  services:
+    - "product-service"
+    - "cart-service"
+    - "order-service"
+    - "payment-service"
+    - "customer-service"
+    - "inventory-service"
+    - "notification-service"
+    - "discount-service"
+    - "checkout-service"
+    - "analytics-service"
+    - "auth-service"
+    - "graphql-service"
+  resourceLimits:
+    cpuLimit: "500m"
+    memoryLimit: "512Mi"
+    storageLimit: "1Gi"

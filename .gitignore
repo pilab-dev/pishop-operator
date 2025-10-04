@@ -1,0 +1,4 @@
+cover.out
+/bin
+/config/manager/github-credentials-secret.yaml
+/config/manager/mongodb-credentials-secret.yaml

@@ -1,0 +1,97 @@
+---
+description: Integration patterns for MongoDB, NATS, and Redis
+---
+# External Services Integration
+
+## MongoDB Integration
+
+### Connection Management
+- Uses MongoDB URI from environment variables
+- Creates isolated databases per PR: `{service-name}_pr_{prNumber}`
+- Creates dedicated users with PR-specific permissions
+- Stores credentials in Kubernetes secrets
+
+### Database Provisioning
+```go
+// Database naming pattern
+dbName := fmt.Sprintf("%s_pr_%s", serviceName, prNumber)
+
+// User creation
+user := fmt.Sprintf("user_pr_%s", prNumber)
+password := generateRandomPassword()
+```
+
+### Backup and Restore
+- Backup jobs run as Kubernetes Jobs
+- Use `mongodump` and `mongorestore` commands
+- Backup storage via PersistentVolumeClaims
+- Retention policy based on `spec.backupConfig.retentionDays`
+
+## NATS Integration
+
+### Subject Isolation
+- PR-specific subject prefixes: `pr.{prNumber}.{service}.{subject}`
+- Prevents message cross-contamination between PRs
+- Uses existing NATS cluster with subject-level isolation
+
+### Configuration
+```go
+// Subject prefix pattern
+subjectPrefix := fmt.Sprintf("pr.%s", prNumber)
+
+// Connection string
+connectionString := fmt.Sprintf("nats://nats.pishop-base.svc.cluster.local:4222")
+```
+
+## Redis Integration
+
+### Keyspace Isolation
+- PR-specific key prefixes: `pr:{prNumber}:{service}:{key}`
+- Uses existing Redis cluster with key-level isolation
+- Prevents data cross-contamination between PRs
+
+### Configuration
+```go
+// Key prefix pattern
+keyPrefix := fmt.Sprintf("pr:%s", prNumber)
+
+// Connection string
+connectionString := "redis://redis.pishop-base.svc.cluster.local:6379"
+```
+
+## Service Deployment Patterns
+
+### Default Services
+If no services specified in `spec.services`, defaults to:
+- product-service, cart-service, order-service
+- payment-service, customer-service, inventory-service
+- notification-service, discount-service, checkout-service
+- analytics-service, auth-service, graphql-service
+
+### Image Configuration
+- Default tag: `pr-{prNumber}`
+- Custom tag via `spec.imageTag`
+- Registry: `ghcr.io/pilab-dev/{service-name}:{tag}`
+- Pull policy: `Always` for reliable updates
+
+### Environment Variables
+Each service receives:
+- MongoDB connection details
+- NATS connection string
+- Redis connection string
+- Service-specific configuration
+
+## Resource Limits
+
+Configurable via `spec.resourceLimits`:
+- CPU limits per service
+- Memory limits per service
+- Storage limits for databases
+- Applied to all deployments in the PR namespace
+
+## Monitoring and Health Checks
+
+- Service status tracked in `status.services[]`
+- Health checks via Kubernetes liveness/readiness probes
+- Status updates during reconciliation
+- Error messages for failed services

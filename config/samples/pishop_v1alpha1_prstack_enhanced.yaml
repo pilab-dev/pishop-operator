@@ -1,0 +1,44 @@
+apiVersion: shop.pilab.hu/v1alpha1
+kind: PRStack
+metadata:
+  name: prstack-sample-enhanced
+  namespace: default
+spec:
+  # PR number for this stack
+  prNumber: "123"
+  
+  # Active controls whether the stack is running (true) or de-provisioned (false)
+  # When false: all deployments scaled to 0 replicas
+  # When true: all deployments scaled to 1 replica with fresh images
+  active: true
+  
+  # Services to deploy for this PR (optional - defaults to all services)
+  services:
+    - "product-service"
+    - "cart-service"
+    - "order-service"
+    - "payment-service"
+    - "customer-service"
+    - "inventory-service"
+    - "notification-service"
+    - "discount-service"
+    - "checkout-service"
+    - "analytics-service"
+    - "auth-service"
+    - "graphql-service"
+  
+  # Environment configuration
+  environment: "pr"
+  
+  # Resource limits for the PR environment
+  resourceLimits:
+    cpuLimit: "500m"
+    memoryLimit: "1Gi"
+    storageLimit: "10Gi"
+  
+  # Connection details (optional - uses operator defaults if not specified)
+  mongoURI: "mongodb://mongodb.pishop-base.svc.cluster.local:27017"
+  mongoUsername: "admin"
+  mongoPassword: "password"
+  natsURL: "nats://nats.pishop-base.svc.cluster.local:4222"
+  redisURL: "redis://redis.pishop-base.svc.cluster.local:6379"

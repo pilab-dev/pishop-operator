@@ -1,0 +1,51 @@
+apiVersion: shop.pilab.hu/v1alpha1
+kind: PRStack
+metadata:
+  name: prstack-sample-with-backup
+  namespace: default
+spec:
+  prNumber: "123"
+  active: true
+  environment: "pr"
+
+  # MongoDB connection details
+  mongoURI: "mongodb://mongodb.shop-base.svc.cluster.local:27017"
+  mongoUsername: "admin"
+  mongoPassword: "password"
+
+  # NATS connection details
+  natsURL: "nats://nats.shop-base.svc.cluster.local:4222"
+
+  # Redis connection details
+  redisURL: "redis://redis.shop-base.svc.cluster.local:6379"
+
+  # Services to deploy
+  services:
+    - "product-service"
+    - "cart-service"
+    - "order-service"
+    - "payment-service"
+    - "customer-service"
+    - "inventory-service"
+    - "notification-service"
+    - "discount-service"
+    - "checkout-service"
+    - "analytics-service"
+    - "auth-service"
+    - "graphql-service"
+    - "invoice-service"
+    - "accounting-service"
+
+  # Resource limits
+  resourceLimits:
+    cpuLimit: "500m"
+    memoryLimit: "512Mi"
+    storageLimit: "10Gi"
+
+  # Backup configuration
+  backupConfig:
+    enabled: true
+    schedule: "0 2 * * *" # Daily at 2 AM
+    retentionDays: 7
+    storageClass: "fast-ssd"
+    storageSize: "50Gi"

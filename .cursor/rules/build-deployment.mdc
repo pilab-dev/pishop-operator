@@ -1,0 +1,76 @@
+---
+globs: Makefile,Dockerfile*,*.yaml
+---
+# Build and Deployment Guidelines
+
+## Build System
+
+The [Makefile](mdc:Makefile) provides comprehensive build targets:
+
+- `make build`: Build static binary with version information
+- `make test`: Run tests with coverage
+- `make manifests`: Generate CRDs and RBAC manifests
+- `make deploy`: Full deployment pipeline to GHCR and Kubernetes
+
+## Version Management
+
+Build information is embedded via ldflags:
+```makefile
+-ldflags="-X 'main.Version=$(VERSION)' -X 'main.Commit=$(COMMIT_SHA)' -X 'main.BuildDate=$(BUILD_DATE)'"
+```
+
+## Container Images
+
+- **Development**: [Dockerfile](mdc:Dockerfile) - Multi-stage build for development
+- **Production**: [Dockerfile.deploy](mdc:Dockerfile.deploy) - Optimized for deployment
+- **Registry**: `ghcr.io/pilab-dev/pishop-operator:latest`
+- **Tagging**: Uses git tags and commit SHA for versioning
+
+## Deployment Pipeline
+
+The `make deploy` target:
+1. Builds static binary
+2. Creates Docker image
+3. Pushes to GHCR
+4. Updates deployment manifests
+5. Applies CRDs and RBAC
+6. Deploys operator to Kubernetes
+
+## Environment Configuration
+
+### Local Development
+```bash
+make run  # Run operator locally
+```
+
+### Production Deployment
+```bash
+make deploy  # Full deployment pipeline
+```
+
+### Status Checking
+```bash
+make status  # Check deployment status
+make logs    # View operator logs
+make restart # Restart operator deployment
+```
+
+## Secrets Management
+
+Required secrets in `pishop-operator-system` namespace:
+- `mongodb-credentials`: MongoDB connection details
+- `github-registry-credentials`: GHCR authentication
+
+## CRD Management
+
+- CRDs generated in `config/crd/bases/`
+- Applied automatically during deployment
+- Use `make install` for CRD-only installation
+- Use `make uninstall` for cleanup
+
+## Troubleshooting
+
+- Check operator logs: `make logs`
+- Verify CRDs: `kubectl get crd | grep shop.pilab.hu`
+- Check deployment status: `make status`
+- Restart operator: `make restart`

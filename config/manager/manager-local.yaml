@@ -1,0 +1,166 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: shop-pilab-hu
+  labels:
+    control-plane: controller-manager
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: pishop-provisioner-controller-manager
+  namespace: shop-pilab-hu
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: pishop-provisioner-manager-role
+rules:
+- apiGroups:
+  - ""
+  resources:
+  - configmaps
+  - secrets
+  - services
+  - namespaces
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - apps
+  resources:
+  - deployments
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - shop.pilab.hu
+  resources:
+  - prstacks
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - shop.pilab.hu
+  resources:
+  - prstacks/finalizers
+  verbs:
+  - update
+- apiGroups:
+  - shop.pilab.hu
+  resources:
+  - prstacks/status
+  verbs:
+  - get
+  - patch
+  - update
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: pishop-provisioner-manager-rolebinding
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: pishop-provisioner-manager-role
+subjects:
+- kind: ServiceAccount
+  name: pishop-provisioner-controller-manager
+  namespace: shop-pilab-hu
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: pishop-provisioner-controller-manager
+  namespace: shop-pilab-hu
+  labels:
+    control-plane: controller-manager
+spec:
+  selector:
+    matchLabels:
+      control-plane: controller-manager
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        control-plane: controller-manager
+    spec:
+      serviceAccountName: pishop-provisioner-controller-manager
+      imagePullSecrets:
+      - name: ghcr-secret
+      containers:
+      - name: manager
+        image: pishop-operator:latest
+        imagePullPolicy: Never
+        args:
+        - --metrics-bind-address=:8080
+        - --health-probe-bind-address=:8081
+        - --leader-elect
+        ports:
+        - name: metrics
+          containerPort: 8080
+          protocol: TCP
+        - name: health
+          containerPort: 8081
+          protocol: TCP
+        resources:
+          limits:
+            cpu: 500m
+            memory: 128Mi
+          requests:
+            cpu: 10m
+            memory: 64Mi
+        env:
+        - name: WATCH_NAMESPACE
+          value: ""
+        - name: POD_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.name
+        - name: POD_NAMESPACE
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.namespace
+        - name: GITHUB_USERNAME
+          valueFrom:
+            secretKeyRef:
+              name: github-registry-credentials
+              key: username
+              optional: true
+        - name: GITHUB_TOKEN
+          valueFrom:
+            secretKeyRef:
+              name: github-registry-credentials
+              key: token
+              optional: true
+        - name: MONGO_URI
+          valueFrom:
+            secretKeyRef:
+              name: mongodb-credentials
+              key: uri
+        - name: MONGO_USERNAME
+          valueFrom:
+            secretKeyRef:
+              name: mongodb-credentials
+              key: username
+        - name: MONGO_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: mongodb-credentials
+              key: password
+      terminationGracePeriodSeconds: 10

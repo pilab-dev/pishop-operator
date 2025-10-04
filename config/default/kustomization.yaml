@@ -1,0 +1,14 @@
+# These resources will be applied to the cluster
+resources:
+  - ../crd/bases
+  - ../manager/manager.yaml
+
+# These patches will be applied last
+patches:
+  - target:
+      kind: Deployment
+      name: pishop-operator
+    patch: |-
+      - op: replace
+        path: /spec/template/spec/containers/0/image
+        value: ghcr.io/pilab-dev/pishop-operator:latest

@@ -1,0 +1,59 @@
+---
+globs: *.go,*.yaml
+---
+# Kubernetes Patterns for PiShop Operator
+
+## Resource Naming
+
+- Namespaces: `pr-{prNumber}-shop-pilab-hu`
+- Secrets: `mongodb-secret`, `ghcr-secret`
+- ConfigMaps: `{service-name}-config`
+- Deployments: `{service-name}`
+- Services: `{service-name}`
+
+## RBAC Configuration
+
+The operator requires extensive RBAC permissions defined in [controllers/prstack_controller.go](mdc:controllers/prstack_controller.go):
+
+```go
+//+kubebuilder:rbac:groups=shop.pilab.hu,resources=prstacks,verbs=get;list;watch;create;update;patch;delete
+//+kubebuilder:rbac:groups=core,resources=namespaces,verbs=get;list;watch;create;update;patch;delete
+//+kubebuilder:rbac:groups=apps,resources=deployments,verbs=get;list;watch;create;update;patch;delete
+```
+
+## Resource Lifecycle
+
+1. **Creation Order**: Namespace → Secrets → ConfigMaps → Deployments → Services
+2. **Deletion Order**: Services → Deployments → ConfigMaps → Secrets → Namespace
+3. **Cleanup**: Use finalizers to ensure proper resource cleanup
+4. **Ownership**: Set owner references for automatic garbage collection
+
+## Environment Variables
+
+- `MONGO_URI`: MongoDB connection string
+- `MONGO_USERNAME`: MongoDB admin username  
+- `MONGO_PASSWORD`: MongoDB admin password
+- `GITHUB_USERNAME`: GitHub username for GHCR
+- `GITHUB_TOKEN`: GitHub token for GHCR
+- `GITHUB_EMAIL`: GitHub email for GHCR
+
+## Image Management
+
+- Use GHCR for container images: `ghcr.io/pilab-dev/{service-name}:{tag}`
+- Default image tag format: `pr-{prNumber}`
+- Custom image tags via `spec.imageTag`
+- Force image pulls with `imagePullPolicy: Always`
+
+## Scaling Patterns
+
+- Active stacks: 1 replica per deployment
+- Inactive stacks: 0 replicas (scaled down)
+- Use `scaleDeployments()` for consistent scaling
+- Check `spec.active` flag for desired state
+
+## Backup and Restore
+
+- Backup PVCs use storage classes from `spec.backupConfig.storageClass`
+- Backup jobs run as Kubernetes Jobs
+- Restore operations create temporary pods
+- Backup retention controlled by `spec.backupConfig.retentionDays`

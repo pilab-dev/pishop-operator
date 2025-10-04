@@ -1,0 +1,331 @@
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    controller-gen.kubebuilder.io/version: v0.17.0
+  name: prstacks.shop.pilab.hu
+spec:
+  group: shop.pilab.hu
+  names:
+    kind: PRStack
+    listKind: PRStackList
+    plural: prstacks
+    singular: prstack
+  scope: Cluster
+  versions:
+  - additionalPrinterColumns:
+    - jsonPath: .status.phase
+      name: Phase
+      type: string
+    - jsonPath: .spec.prNumber
+      name: PR Number
+      type: string
+    - jsonPath: .spec.environment
+      name: Environment
+      type: string
+    - jsonPath: .metadata.creationTimestamp
+      name: Age
+      type: date
+    name: v1alpha1
+    schema:
+      openAPIV3Schema:
+        description: PRStack is the Schema for the prstacks API
+        properties:
+          apiVersion:
+            description: |-
+              APIVersion defines the versioned schema of this representation of an object.
+              Servers should convert recognized schemas to the latest internal value, and
+              may reject unrecognized values.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
+            type: string
+          kind:
+            description: |-
+              Kind is a string value representing the REST resource this object represents.
+              Servers may infer this from the endpoint the client submits requests to.
+              Cannot be updated.
+              In CamelCase.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
+            type: string
+          metadata:
+            type: object
+          spec:
+            description: PRStackSpec defines the desired state of PRStack
+            properties:
+              active:
+                default: true
+                description: |-
+                  Active controls whether the stack is active (replicas > 0) or inactive (replicas = 0)
+                  When false, all deployments are scaled to 0 replicas
+                  When true, all deployments are scaled to 1 replica
+                type: boolean
+              backupConfig:
+                description: Backup configuration
+                properties:
+                  enabled:
+                    description: Enabled controls whether automatic backups are enabled
+                    type: boolean
+                  retentionDays:
+                    description: RetentionDays defines how many days to keep backups
+                    type: integer
+                  schedule:
+                    description: Schedule defines the backup schedule in cron format
+                    type: string
+                  storageClass:
+                    description: StorageClass defines the storage class for backup
+                      PVCs
+                    type: string
+                  storageSize:
+                    description: StorageSize defines the size of backup storage
+                    type: string
+                type: object
+              deployedAt:
+                description: |-
+                  DeployedAt is a timestamp that triggers a rollout of all deployments when changed
+                  Update this field to force a re-deployment of all services
+                format: date-time
+                type: string
+              environment:
+                description: Environment configuration
+                type: string
+              imageTag:
+                description: |-
+                  ImageTag is the Docker image tag to use for services (e.g., pr-33-abc123)
+                  If not specified, defaults to pr-{prNumber}
+                type: string
+              mongoPassword:
+                type: string
+              mongoURI:
+                description: MongoDB connection details
+                type: string
+              mongoUsername:
+                type: string
+              natsURL:
+                description: NATS connection details
+                type: string
+              prNumber:
+                description: PRNumber is the pull request number
+                type: string
+              redisURL:
+                description: Redis connection details
+                type: string
+              resourceLimits:
+                description: Resource limits for the PR environment
+                properties:
+                  cpuLimit:
+                    description: CPU limit per service
+                    type: string
+                  memoryLimit:
+                    description: Memory limit per service
+                    type: string
+                  storageLimit:
+                    description: Storage limit for databases
+                    type: string
+                type: object
+              services:
+                description: Services to provision for this PR
+                items:
+                  type: string
+                type: array
+            required:
+            - prNumber
+            type: object
+          status:
+            description: PRStackStatus defines the observed state of PRStack
+            properties:
+              backup:
+                description: Backup status
+                properties:
+                  backupCount:
+                    description: BackupCount is the total number of backups available
+                    type: integer
+                  backupJobs:
+                    description: BackupJobs tracks running backup/restore jobs
+                    items:
+                      description: BackupJobStatus represents the status of a backup
+                        or restore job
+                      properties:
+                        completionTime:
+                          description: CompletionTime is when the job completed
+                          format: date-time
+                          type: string
+                        message:
+                          description: Message about the job status
+                          type: string
+                        name:
+                          description: Name of the job
+                          type: string
+                        startTime:
+                          description: StartTime is when the job started
+                          format: date-time
+                          type: string
+                        status:
+                          description: Status of the job (Running, Completed, Failed)
+                          type: string
+                        type:
+                          description: Type of job (backup, restore)
+                          type: string
+                      required:
+                      - name
+                      - status
+                      - type
+                      type: object
+                    type: array
+                  lastBackupName:
+                    description: LastBackupName is the name of the last successful
+                      backup
+                    type: string
+                  lastBackupSize:
+                    description: LastBackupSize is the size of the last backup
+                    type: string
+                  lastBackupTime:
+                    description: LastBackupTime is the timestamp of the last successful
+                      backup
+                    format: date-time
+                    type: string
+                type: object
+              conditions:
+                description: Conditions represent the latest available observations
+                  of the object's state
+                items:
+                  description: Condition contains details for one aspect of the current
+                    state of this API Resource.
+                  properties:
+                    lastTransitionTime:
+                      description: |-
+                        lastTransitionTime is the last time the condition transitioned from one status to another.
+                        This should be when the underlying condition changed.  If that is not known, then using the time when the API field changed is acceptable.
+                      format: date-time
+                      type: string
+                    message:
+                      description: |-
+                        message is a human readable message indicating details about the transition.
+                        This may be an empty string.
+                      maxLength: 32768
+                      type: string
+                    observedGeneration:
+                      description: |-
+                        observedGeneration represents the .metadata.generation that the condition was set based upon.
+                        For instance, if .metadata.generation is currently 12, but the .status.conditions[x].observedGeneration is 9, the condition is out of date
+                        with respect to the current state of the instance.
+                      format: int64
+                      minimum: 0
+                      type: integer
+                    reason:
+                      description: |-
+                        reason contains a programmatic identifier indicating the reason for the condition's last transition.
+                        Producers of specific condition types may define expected values and meanings for this field,
+                        and whether the values are considered a guaranteed API.
+                        The value should be a CamelCase string.
+                        This field may not be empty.
+                      maxLength: 1024
+                      minLength: 1
+                      pattern: ^[A-Za-z]([A-Za-z0-9_,:]*[A-Za-z0-9_])?$
+                      type: string
+                    status:
+                      description: status of the condition, one of True, False, Unknown.
+                      enum:
+                      - "True"
+                      - "False"
+                      - Unknown
+                      type: string
+                    type:
+                      description: type of condition in CamelCase or in foo.example.com/CamelCase.
+                      maxLength: 316
+                      pattern: ^([a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*/)?(([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9])$
+                      type: string
+                  required:
+                  - lastTransitionTime
+                  - message
+                  - reason
+                  - status
+                  - type
+                  type: object
+                type: array
+              createdAt:
+                description: CreatedAt is the timestamp when the stack was first created
+                format: date-time
+                type: string
+              lastActiveAt:
+                description: LastActiveAt is the timestamp of the last activity on
+                  the stack
+                format: date-time
+                type: string
+              lastDeployedAt:
+                description: LastDeployedAt is the timestamp when deployments were
+                  last rolled out
+                format: date-time
+                type: string
+              message:
+                description: Message provides additional information about the current
+                  status
+                type: string
+              mongodb:
+                description: MongoDB credentials for this PR
+                properties:
+                  connectionString:
+                    description: Connection string for the PR databases
+                    type: string
+                  databases:
+                    description: Databases lists the created databases
+                    items:
+                      type: string
+                    type: array
+                  password:
+                    description: PRPassword is the generated password for the PR user
+                    type: string
+                  user:
+                    description: PRUser is the created MongoDB user for this PR
+                    type: string
+                type: object
+              nats:
+                description: NATS configuration for this PR
+                properties:
+                  connectionString:
+                    description: Connection string for NATS
+                    type: string
+                  subjectPrefix:
+                    description: Subject prefix for this PR
+                    type: string
+                type: object
+              phase:
+                description: Phase represents the current phase of the PR stack
+                type: string
+              redis:
+                description: Redis configuration for this PR
+                properties:
+                  connectionString:
+                    description: Connection string for Redis
+                    type: string
+                  keyPrefix:
+                    description: Key prefix for this PR
+                    type: string
+                type: object
+              services:
+                description: Deployed services
+                items:
+                  description: ServiceStatus represents the status of a deployed service
+                  properties:
+                    message:
+                      description: Message about the service status
+                      type: string
+                    name:
+                      description: Name of the service
+                      type: string
+                    status:
+                      description: Status of the service (Running, Failed, Pending)
+                      type: string
+                    url:
+                      description: URL of the service
+                      type: string
+                  required:
+                  - name
+                  - status
+                  type: object
+                type: array
+            type: object
+        type: object
+    served: true
+    storage: true
+    subresources:
+      status: {}

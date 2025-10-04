@@ -1,0 +1,33 @@
+---
+alwaysApply: true
+---
+# PiShop Operator Project Structure
+
+This is a Kubernetes operator built with Go and controller-runtime for managing PR-based environments for PiShop microservices.
+
+## Key Components
+
+- **API Types**: [api/v1alpha1/prdatabase_types.go](mdc:api/v1alpha1/prdatabase_types.go) - Defines the PRStack CRD with MongoDB, NATS, Redis configuration
+- **Main Controller**: [controllers/prstack_controller.go](mdc:controllers/prstack_controller.go) - Main reconciliation logic for PRStack resources
+- **Operator Entry Point**: [operator/main.go](mdc:operator/main.go) - Application entry point with manager setup
+- **Build Configuration**: [Makefile](mdc:Makefile) - Build, test, and deployment targets
+- **Docker Configuration**: [Dockerfile](mdc:Dockerfile) and [Dockerfile.deploy](mdc:Dockerfile.deploy) - Container build definitions
+
+## Architecture
+
+The operator manages PR-based environments by:
+1. Creating isolated namespaces per PR (`pr-{number}-shop-pilab-hu`)
+2. Provisioning MongoDB databases with isolated users
+3. Managing NATS subjects for message isolation
+4. Creating Redis keyspace isolation
+5. Deploying microservices with PR-specific image tags
+6. Handling backup and restore operations
+7. Automatic cleanup and expiration (1 hour timeout)
+
+## Key Features
+
+- **Lifecycle Management**: Initialization → Provisioning → Deployment → Running → Cleaning
+- **Auto-scaling**: Stacks can be marked inactive (0 replicas) or active (1 replica)
+- **Rollout Support**: [ROLLOUT_DEPLOYMENTS.md](mdc:ROLLOUT_DEPLOYMENTS.md) - Trigger deployment rollouts via `deployedAt` timestamp
+- **Backup/Restore**: Automated backup creation and restoration capabilities
+- **GitHub Integration**: Pulls images from GHCR with automatic secret management
