@@ -67,6 +67,22 @@ jobs:
         username: ${{ github.actor }}
         password: ${{ secrets.GITHUB_TOKEN }}
     
+    - name: Debug permissions
+      run: |
+        echo "🔍 Debug information:"
+        echo "  Actor: ${{ github.actor }}"
+        echo "  Repository: ${{ github.repository }}"
+        echo "  Event: ${{ github.event_name }}"
+        echo "  Ref: ${{ github.ref }}"
+        echo "  Image: ${{ env.GHCR_REGISTRY }}/${{ env.GHCR_NAMESPACE }}/${{ env.GHCR_IMAGE_NAME }}"
+        echo ""
+        echo "🔐 Testing GHCR authentication..."
+        echo "${{ secrets.GITHUB_TOKEN }}" | docker login ${{ env.GHCR_REGISTRY }} -u ${{ github.actor }} --password-stdin
+        echo ""
+        echo "📦 Testing package access..."
+        docker pull hello-world:latest || true
+        echo "✅ Docker is working"
+    
     - name: Build and push Docker image
       uses: docker/build-push-action@v5
       with:

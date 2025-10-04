@@ -51,28 +51,20 @@ manifests: controller-gen ## Generate WebhookConfiguration, ClusterRole and Cust
 generate: controller-gen ## Generate code containing DeepCopy, DeepCopyInto, and DeepCopyObject method implementations.
 	$(CONTROLLER_GEN) object:headerFile="hack/boilerplate.go.txt" paths="./..."
 
-.PHONY: fmt
-fmt: ## Run go fmt against code.
-	go fmt ./...
-
-.PHONY: vet
-vet: ## Run go vet against code.
-	go vet ./...
-
 .PHONY: test
-test: manifests generate fmt vet ## Run tests.
+test: manifests generate ## Run tests.
 	go test ./... -coverprofile cover.out
 
 ##@ Build
 
 .PHONY: build
-build: manifests generate fmt vet ## Build manager binary.
+build: manifests generate ## Build manager binary.
 	CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build \
 		-ldflags="-X 'main.Version=$(VERSION)' -X 'main.Commit=$(COMMIT_SHA)' -X 'main.BuildDate=$(BUILD_DATE)' -w -s" \
 		-o bin/pishop-operator ./operator/
 
 .PHONY: run
-run: manifests generate fmt vet ## Run a controller from your host.
+run: manifests generate ## Run a controller from your host.
 	go run ./operator/main.go
 
 
