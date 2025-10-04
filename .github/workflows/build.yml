@@ -26,11 +26,6 @@ jobs:
       with:
         fetch-depth: 0  # Fetch full history for version calculation
     
-    - name: Set up Go
-      uses: actions/setup-go@v5
-      with:
-        go-version: '1.21'
-    
     - name: Calculate version
       id: version
       run: |
