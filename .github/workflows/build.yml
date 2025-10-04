@@ -77,8 +77,6 @@ jobs:
           ${{ env.GHCR_REGISTRY }}/${{ env.GHCR_NAMESPACE }}/${{ env.GHCR_IMAGE_NAME }}:${{ steps.version.outputs.VERSION }}
           ${{ env.GHCR_REGISTRY }}/${{ env.GHCR_NAMESPACE }}/${{ env.GHCR_IMAGE_NAME }}:${{ env.GHCR_TAG }}
         platforms: linux/amd64
-        cache-from: type=gha
-        cache-to: type=gha,mode=max
         build-args: |
           VERSION=${{ steps.version.outputs.VERSION }}
           COMMIT=${{ steps.version.outputs.COMMIT_SHA }}
