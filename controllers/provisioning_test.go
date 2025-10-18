@@ -189,7 +189,7 @@ var _ = Describe("Provisioning", func() {
 			}
 			
 			imageTag := getImageTag(prStack, "product-service")
-			Expect(imageTag).To(Equal("ghcr.io/pilab-dev/shop-product-service:v1.2.3"))
+			Expect(imageTag).To(Equal("ghcr.io/pilab-dev/product-service:v1.2.3"))
 		})
 
 		It("should return default image tag when not specified", func() {
@@ -200,7 +200,7 @@ var _ = Describe("Provisioning", func() {
 			}
 			
 			imageTag := getImageTag(prStack, "product-service")
-			Expect(imageTag).To(Equal("ghcr.io/pilab-dev/shop-product-service:pr-123"))
+			Expect(imageTag).To(Equal("ghcr.io/pilab-dev/product-service:pr-123"))
 		})
 	})
 
