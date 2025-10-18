@@ -5,6 +5,7 @@ import (
 	"regexp"
 	"strings"
 
+	"k8s.io/apimachinery/pkg/api/resource"
 	pishopv1alpha1 "go.pilab.hu/shop/pishop-provisioner/api/v1alpha1"
 )
 
@@ -163,14 +164,10 @@ func validateResourceQuantity(quantity, fieldName string) error {
 		return &ValidationError{Field: fieldName, Message: "resource quantity cannot be empty"}
 	}
 
-	// Basic validation for Kubernetes resource quantities
-	matched, err := regexp.MatchString(`^[0-9]+(\.[0-9]+)?[a-zA-Z]*$`, quantity)
+	// Use Kubernetes resource.ParseQuantity for accurate validation
+	_, err := resource.ParseQuantity(quantity)
 	if err != nil {
-		return &ValidationError{Field: fieldName, Message: "invalid regex pattern"}
-	}
-
-	if !matched {
-		return &ValidationError{Field: fieldName, Message: "invalid resource quantity format"}
+		return &ValidationError{Field: fieldName, Message: fmt.Sprintf("invalid resource quantity format: %v", err)}
 	}
 
 	return nil
