@@ -181,9 +181,6 @@ func (r *PRStackReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 		return r.handleInactiveStack(ctx, &prStack)
 	}
 
-	// Update last active time when active
-	prStack.Status.LastActiveAt = &now
-
 	// Check if a deployment rollout is requested
 	if r.shouldRolloutDeployments(&prStack) {
 		log.Info("Deployment rollout requested", "prNumber", prStack.Spec.PRNumber, "deployedAt", prStack.Spec.DeployedAt)
