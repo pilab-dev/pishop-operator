@@ -74,7 +74,7 @@ func (r *PRStackReconciler) provisionMongoDB(ctx context.Context, prStack *pisho
 	}
 
 	// Create databases and collections
-	services := []string{"products", "cart", "orders", "payments", "customers", "inventory", "notifications", "discounts", "checkout", "analytics", "auth", "graphql"}
+	services := DefaultServices
 	var databases []string
 
 	for _, service := range services {
@@ -708,4 +708,3 @@ func (r *PRStackReconciler) createGraphQLCollections(ctx context.Context, databa
 	return nil
 }
 
-func int32Ptr(i int32) *int32 { return &i }
