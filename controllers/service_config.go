@@ -1,7 +1,9 @@
 package controllers
 
 import (
+	"fmt"
 	"strconv"
+	"strings"
 
 	corev1 "k8s.io/api/core/v1"
 )
@@ -1125,6 +1127,42 @@ func getDatabaseName(serviceName, prNumber string) string {
 		dbName = serviceName[:len(serviceName)-8]
 	}
 	return "pishop_" + dbName + "_pr_" + prNumber
+}
+
+// getDatabaseConfigMapData generates the database configuration map for all services
+func getDatabaseConfigMapData(prNumber string) map[string]string {
+	data := map[string]string{
+		"uri":     "", // Will be set by caller
+		"timeout": "10",
+	}
+	
+	// Add database names for each service
+	for _, service := range DefaultServices {
+		dbName := getDatabaseName(service, prNumber)
+		// Convert service name to config key (e.g., "product-service" -> "product-database")
+		configKey := strings.TrimSuffix(service, "-service") + "-database"
+		data[configKey] = dbName
+	}
+	
+	return data
+}
+
+// getDatabaseURIs generates the database URI configuration map for all services
+func getDatabaseURIs(connectionString, prNumber string) map[string]string {
+	data := map[string]string{
+		"uri":      connectionString,
+		"username": "", // Will be set by caller
+		"password": "", // Will be set by caller
+	}
+	
+	// Add database URIs for each service
+	for _, service := range DefaultServices {
+		// Convert service name to config key (e.g., "product-service" -> "product-db-uri")
+		configKey := strings.TrimSuffix(service, "-service") + "-db-uri"
+		data[configKey] = fmt.Sprintf("%s/%s", connectionString, prNumber)
+	}
+	
+	return data
 }
 
 // GetServicePorts returns the standardized ports for a service

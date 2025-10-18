@@ -44,6 +44,10 @@ func (b *BackupRestoreManager) CreateBackup(ctx context.Context, prStack *pishop
 	log := ctrl.LoggerFrom(ctx)
 	log.Info("Creating backup for PR stack", "prNumber", prStack.Spec.PRNumber)
 
+	if prStack.Status.MongoDB == nil {
+		return fmt.Errorf("MongoDB status not available")
+	}
+
 	backupSpec := &BackupSpec{
 		PRNumber:    prStack.Spec.PRNumber,
 		Databases:   prStack.Status.MongoDB.Databases,
@@ -65,6 +69,10 @@ func (b *BackupRestoreManager) CreateBackup(ctx context.Context, prStack *pishop
 func (b *BackupRestoreManager) RestoreBackup(ctx context.Context, prStack *pishopv1alpha1.PRStack, backupName string) error {
 	log := ctrl.LoggerFrom(ctx)
 	log.Info("Restoring backup for PR stack", "prNumber", prStack.Spec.PRNumber, "backupName", backupName)
+
+	if prStack.Status.MongoDB == nil {
+		return fmt.Errorf("MongoDB status not available")
+	}
 
 	restoreSpec := &RestoreSpec{
 		PRNumber:   prStack.Spec.PRNumber,
@@ -468,3 +476,6 @@ func (b *BackupRestoreManager) CleanupOldBackups(ctx context.Context, prNumber s
 
 	return nil
 }
+
+// int32Ptr returns a pointer to an int32 value
+func int32Ptr(i int32) *int32 { return &i }

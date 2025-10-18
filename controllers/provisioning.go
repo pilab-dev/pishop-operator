@@ -49,16 +49,13 @@ func (r *PRStackReconciler) provisionMongoDB(ctx context.Context, prStack *pisho
 
 	// Create PR user with limited permissions
 	adminDB := client.Database("admin")
-	roles := []bson.M{
-		{"role": "readWrite", "db": fmt.Sprintf("pishop_products_pr_%s", prStack.Spec.PRNumber)},
-		{"role": "readWrite", "db": fmt.Sprintf("pishop_cart_pr_%s", prStack.Spec.PRNumber)},
-		{"role": "readWrite", "db": fmt.Sprintf("pishop_orders_pr_%s", prStack.Spec.PRNumber)},
-		{"role": "readWrite", "db": fmt.Sprintf("pishop_payments_pr_%s", prStack.Spec.PRNumber)},
-		{"role": "readWrite", "db": fmt.Sprintf("pishop_customers_pr_%s", prStack.Spec.PRNumber)},
-		{"role": "readWrite", "db": fmt.Sprintf("pishop_inventory_pr_%s", prStack.Spec.PRNumber)},
-		{"role": "readWrite", "db": fmt.Sprintf("pishop_notifications_pr_%s", prStack.Spec.PRNumber)},
-		{"role": "readWrite", "db": fmt.Sprintf("pishop_discounts_pr_%s", prStack.Spec.PRNumber)},
-		{"role": "readWrite", "db": fmt.Sprintf("pishop_checkout_pr_%s", prStack.Spec.PRNumber)},
+	
+	// Build roles dynamically from DefaultServices
+	services := DefaultServices
+	var roles []bson.M
+	for _, service := range services {
+		dbName := getDatabaseName(service, prStack.Spec.PRNumber)
+		roles = append(roles, bson.M{"role": "readWrite", "db": dbName})
 	}
 
 	// Drop user if exists (ignore errors)
@@ -74,11 +71,10 @@ func (r *PRStackReconciler) provisionMongoDB(ctx context.Context, prStack *pisho
 	}
 
 	// Create databases and collections
-	services := []string{"products", "cart", "orders", "payments", "customers", "inventory", "notifications", "discounts", "checkout", "analytics", "auth", "graphql"}
 	var databases []string
 
 	for _, service := range services {
-		dbName := fmt.Sprintf("pishop_%s_pr_%s", service, prStack.Spec.PRNumber)
+		dbName := getDatabaseName(service, prStack.Spec.PRNumber)
 		databases = append(databases, dbName)
 
 		database := client.Database(dbName)
@@ -387,7 +383,39 @@ func (r *PRStackReconciler) createRedisResources(ctx context.Context, prStack *p
 }
 
 func (r *PRStackReconciler) createServiceCollections(ctx context.Context, database *mongo.Database, service string) error {
+	// Convert service name to collection name by removing "-service" suffix and handling special cases
+	var collectionName string
 	switch service {
+	case "product-service":
+		collectionName = "products"
+	case "cart-service":
+		collectionName = "cart"
+	case "order-service":
+		collectionName = "orders"
+	case "payment-service":
+		collectionName = "payments"
+	case "customer-service":
+		collectionName = "customers"
+	case "inventory-service":
+		collectionName = "inventory"
+	case "notification-service":
+		collectionName = "notifications"
+	case "discount-service":
+		collectionName = "discounts"
+	case "checkout-service":
+		collectionName = "checkout"
+	case "analytics-service":
+		collectionName = "analytics"
+	case "auth-service":
+		collectionName = "auth"
+	case "graphql-service":
+		collectionName = "graphql"
+	default:
+		return fmt.Errorf("unknown service: %s", service)
+	}
+
+	// Call the appropriate collection creation function
+	switch collectionName {
 	case "products":
 		return r.createProductCollections(ctx, database)
 	case "cart":
@@ -413,7 +441,7 @@ func (r *PRStackReconciler) createServiceCollections(ctx context.Context, databa
 	case "graphql":
 		return r.createGraphQLCollections(ctx, database)
 	default:
-		return fmt.Errorf("unknown service: %s", service)
+		return fmt.Errorf("unknown collection: %s", collectionName)
 	}
 }
 
@@ -708,4 +736,3 @@ func (r *PRStackReconciler) createGraphQLCollections(ctx context.Context, databa
 	return nil
 }
 
-func int32Ptr(i int32) *int32 { return &i }

@@ -31,22 +31,11 @@ func (r *PRStackReconciler) createMongoDBResources(ctx context.Context, prStack 
 			Name:      "mongodb-config",
 			Namespace: namespace,
 		},
-		Data: map[string]string{
-			"uri":                   prStack.Status.MongoDB.ConnectionString,
-			"timeout":               "10",
-			"product-database":      fmt.Sprintf("pishop_products_pr_%s", prStack.Spec.PRNumber),
-			"cart-database":         fmt.Sprintf("pishop_cart_pr_%s", prStack.Spec.PRNumber),
-			"order-database":        fmt.Sprintf("pishop_orders_pr_%s", prStack.Spec.PRNumber),
-			"payment-database":      fmt.Sprintf("pishop_payments_pr_%s", prStack.Spec.PRNumber),
-			"customer-database":     fmt.Sprintf("pishop_customers_pr_%s", prStack.Spec.PRNumber),
-			"inventory-database":    fmt.Sprintf("pishop_inventory_pr_%s", prStack.Spec.PRNumber),
-			"notification-database": fmt.Sprintf("pishop_notifications_pr_%s", prStack.Spec.PRNumber),
-			"discount-database":     fmt.Sprintf("pishop_discounts_pr_%s", prStack.Spec.PRNumber),
-			"checkout-database":     fmt.Sprintf("pishop_checkout_pr_%s", prStack.Spec.PRNumber),
-			"analytics-database":    fmt.Sprintf("pishop_analytics_pr_%s", prStack.Spec.PRNumber),
-			"auth-database":         fmt.Sprintf("pishop_auth_pr_%s", prStack.Spec.PRNumber),
-			"graphql-database":      fmt.Sprintf("pishop_graphql_pr_%s", prStack.Spec.PRNumber),
-		},
+		Data: func() map[string]string {
+			data := getDatabaseConfigMapData(prStack.Spec.PRNumber)
+			data["uri"] = prStack.Status.MongoDB.ConnectionString
+			return data
+		}(),
 	}
 
 	if err := r.CreateOrUpdate(ctx, mongodbConfigMap); err != nil {
@@ -368,9 +357,9 @@ func (r *PRStackReconciler) createNamespace(ctx context.Context, namespaceName s
 // Otherwise, default to pr-{prNumber}
 func getImageTag(prStack *pishopv1alpha1.PRStack, serviceName string) string {
 	if prStack.Spec.ImageTag != "" {
-		return fmt.Sprintf("ghcr.io/pilab-dev/shop-%s:%s", serviceName, prStack.Spec.ImageTag)
+		return fmt.Sprintf("ghcr.io/pilab-dev/%s:%s", serviceName, prStack.Spec.ImageTag)
 	}
-	return fmt.Sprintf("ghcr.io/pilab-dev/shop-%s:pr-%s", serviceName, prStack.Spec.PRNumber)
+	return fmt.Sprintf("ghcr.io/pilab-dev/%s:pr-%s", serviceName, prStack.Spec.PRNumber)
 }
 
 // createIngress creates an ingress resource for the GraphQL service

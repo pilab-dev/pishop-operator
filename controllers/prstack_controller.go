@@ -61,8 +61,7 @@ const (
 	EventTypeScaleDownFailed      = "ScaleDownFailed"
 	EventTypeStackExpired         = "StackExpired"
 
-	// Default services
-	DefaultServices = "product-service,cart-service,order-service,payment-service,customer-service,inventory-service,notification-service,discount-service,checkout-service,analytics-service,auth-service,graphql-service"
+	// Default services - moved to constants.go
 
 	// MongoDB secret name
 	MongoDBSecretName = "mongodb-secret"
@@ -182,9 +181,6 @@ func (r *PRStackReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 		return r.handleInactiveStack(ctx, &prStack)
 	}
 
-	// Update last active time when active
-	prStack.Status.LastActiveAt = &now
-
 	// Check if a deployment rollout is requested
 	if r.shouldRolloutDeployments(&prStack) {
 		log.Info("Deployment rollout requested", "prNumber", prStack.Spec.PRNumber, "deployedAt", prStack.Spec.DeployedAt)
@@ -268,6 +264,12 @@ func (r *PRStackReconciler) handleProvisioning(ctx context.Context, prStack *pis
 
 func (r *PRStackReconciler) createMongoDBSecret(ctx context.Context, prStack *pishopv1alpha1.PRStack) error {
 	namespaceName := r.getNamespaceName(prStack.Spec.PRNumber)
+	
+	// Check if MongoDB credentials are available
+	if prStack.Status.MongoDB == nil {
+		return fmt.Errorf("MongoDB credentials not available in status")
+	}
+	
 	secret := &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      MongoDBSecretName,
@@ -331,7 +333,7 @@ func (r *PRStackReconciler) handleDeployment(ctx context.Context, prStack *pisho
 	services := prStack.Spec.Services
 	if len(services) == 0 {
 		// Default services if none specified
-		services = strings.Split(DefaultServices, ",")
+		services = strings.Split(DefaultServicesString, ",")
 	}
 
 	// Deploy each service
@@ -691,7 +693,11 @@ func containsString(slice []string, s string) bool {
 }
 
 func removeString(slice []string, s string) []string {
-	return slices.Delete(slice, slices.Index(slice, s), 1)
+	index := slices.Index(slice, s)
+	if index == -1 {
+		return slice
+	}
+	return append(slice[:index], slice[index+1:]...)
 }
 
 // handleStackExpiration handles stack expiration logic

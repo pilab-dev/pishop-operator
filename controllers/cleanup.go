@@ -55,7 +55,7 @@ func (r *PRStackReconciler) cleanupMongoDB(ctx context.Context, prStack *pishopv
 	}
 
 	// Drop databases for each service (same logic as main.go)
-	services := []string{"products", "cart", "orders", "payments", "customers", "inventory", "notifications", "discounts", "checkout"}
+	services := DefaultServices
 
 	for _, service := range services {
 		dbName := fmt.Sprintf("pishop_%s_pr_%s", service, prStack.Spec.PRNumber)
