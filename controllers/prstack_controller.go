@@ -697,9 +697,7 @@ func removeString(slice []string, s string) []string {
 	if index == -1 {
 		return slice
 	}
-	// Create a new slice to avoid mutating the original
-	result := make([]string, 0, len(slice)-1)
-	return append(append(result, slice[:index]...), slice[index+1:]...)
+	return append(slice[:index], slice[index+1:]...)
 }
 
 // handleStackExpiration handles stack expiration logic

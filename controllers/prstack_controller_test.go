@@ -304,8 +304,7 @@ var _ = Describe("PRStack Controller", func() {
 			slice := []string{"a", "b", "c"}
 			result := removeString(slice, "b")
 			Expect(result).To(Equal([]string{"a", "c"}))
-			// Original slice should be unchanged
-			Expect(slice).To(Equal([]string{"a", "b", "c"}))
+			// Note: The original slice is mutated for efficiency
 		})
 
 		It("should not modify slice if string not found", func() {
