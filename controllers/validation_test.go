@@ -11,8 +11,7 @@ import (
 )
 
 func TestValidation(t *testing.T) {
-	RegisterFailHandler(Fail)
-	RunSpecs(t, "Validation Suite")
+	// Test suite is now managed by suite_test.go
 }
 
 var _ = Describe("Validation", func() {

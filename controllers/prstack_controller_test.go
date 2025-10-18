@@ -22,8 +22,7 @@ import (
 )
 
 func TestPRStackReconciler(t *testing.T) {
-	RegisterFailHandler(Fail)
-	RunSpecs(t, "PRStack Controller Suite")
+	// Test suite is now managed by suite_test.go
 }
 
 var _ = Describe("PRStack Controller", func() {

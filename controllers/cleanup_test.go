@@ -18,8 +18,7 @@ import (
 )
 
 func TestCleanup(t *testing.T) {
-	RegisterFailHandler(Fail)
-	RunSpecs(t, "Cleanup Suite")
+	// Test suite is now managed by suite_test.go
 }
 
 var _ = Describe("Cleanup", func() {

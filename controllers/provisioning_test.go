@@ -18,8 +18,7 @@ import (
 )
 
 func TestProvisioning(t *testing.T) {
-	RegisterFailHandler(Fail)
-	RunSpecs(t, "Provisioning Suite")
+	// Test suite is now managed by suite_test.go
 }
 
 var _ = Describe("Provisioning", func() {

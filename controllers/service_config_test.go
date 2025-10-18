@@ -9,8 +9,7 @@ import (
 )
 
 func TestServiceConfig(t *testing.T) {
-	RegisterFailHandler(Fail)
-	RunSpecs(t, "Service Config Suite")
+	// Test suite is now managed by suite_test.go
 }
 
 var _ = Describe("Service Config", func() {
