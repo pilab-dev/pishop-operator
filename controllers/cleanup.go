@@ -63,7 +63,14 @@ func (r *PRStackReconciler) cleanupMongoDB(ctx context.Context, prStack *pishopv
 
 		database := client.Database(dbName)
 		if err := database.Drop(ctx); err != nil {
-			log.Error(err, "Failed to drop database", "database", dbName)
+			// Check if the error is because the database doesn't exist using MongoDB error codes
+			if serverErr, ok := err.(mongo.ServerError); ok && serverErr.HasErrorCode(26) { // NamespaceNotFound
+				// Database not found is expected during cleanup, log as info
+				log.Info("Database not found during cleanup (expected)", "database", dbName)
+			} else {
+				// Other errors should be logged as errors
+				log.Error(err, "Failed to drop database", "database", dbName)
+			}
 			// Continue with other databases even if one fails
 		} else {
 			log.Info("Successfully dropped database", "database", dbName)
@@ -76,7 +83,14 @@ func (r *PRStackReconciler) cleanupMongoDB(ctx context.Context, prStack *pishopv
 
 	adminDB := client.Database("admin")
 	if err := adminDB.RunCommand(ctx, bson.M{"dropUser": prUser}).Err(); err != nil {
-		log.Error(err, "Failed to drop user", "user", prUser)
+		// Check if the error is because the user doesn't exist using MongoDB error codes
+		if serverErr, ok := err.(mongo.ServerError); ok && serverErr.HasErrorCode(11) { // UserNotFound
+			// User not found is expected during cleanup, log as info
+			log.Info("User not found during cleanup (expected)", "user", prUser)
+		} else {
+			// Other errors should be logged as errors
+			log.Error(err, "Failed to drop user", "user", prUser)
+		}
 		// Don't return error as user might not exist
 	} else {
 		log.Info("Successfully dropped user", "user", prUser)
