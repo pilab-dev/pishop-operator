@@ -74,6 +74,10 @@ jobs:
         echo "🚀 Deploying operator..."
         kubectl apply -f config/manager/manager.yaml
         
+        # Force rollout by restarting the deployment
+        echo "🔄 Forcing deployment rollout..."
+        kubectl rollout restart deployment/pishop-operator -n pishop-operator-system
+        
         # Wait for rollout
         echo "⏳ Waiting for rollout to complete..."
         kubectl rollout status deployment/pishop-operator -n pishop-operator-system --timeout=300s
