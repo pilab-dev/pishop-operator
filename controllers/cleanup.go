@@ -3,7 +3,6 @@ package controllers
 import (
 	"context"
 	"fmt"
-	"strings"
 
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -64,8 +63,8 @@ func (r *PRStackReconciler) cleanupMongoDB(ctx context.Context, prStack *pishopv
 
 		database := client.Database(dbName)
 		if err := database.Drop(ctx); err != nil {
-			// Check if the error is because the database doesn't exist
-			if strings.Contains(err.Error(), "NamespaceNotFound") || strings.Contains(err.Error(), "not found") {
+			// Check if the error is because the database doesn't exist using MongoDB error codes
+			if serverErr, ok := err.(mongo.ServerError); ok && serverErr.HasErrorCode(26) { // NamespaceNotFound
 				// Database not found is expected during cleanup, log as info
 				log.Info("Database not found during cleanup (expected)", "database", dbName)
 			} else {
@@ -84,8 +83,8 @@ func (r *PRStackReconciler) cleanupMongoDB(ctx context.Context, prStack *pishopv
 
 	adminDB := client.Database("admin")
 	if err := adminDB.RunCommand(ctx, bson.M{"dropUser": prUser}).Err(); err != nil {
-		// Check if the error is because the user doesn't exist (UserNotFound)
-		if strings.Contains(err.Error(), "UserNotFound") || strings.Contains(err.Error(), "not found") {
+		// Check if the error is because the user doesn't exist using MongoDB error codes
+		if serverErr, ok := err.(mongo.ServerError); ok && serverErr.HasErrorCode(11) { // UserNotFound
 			// User not found is expected during cleanup, log as info
 			log.Info("User not found during cleanup (expected)", "user", prUser)
 		} else {
