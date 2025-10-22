@@ -195,7 +195,9 @@ func (r *PRStackReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 			log.Error(err, "Failed to rollout deployments")
 			r.Recorder.Event(&prStack, corev1.EventTypeWarning, EventTypeRolloutFailed, fmt.Sprintf("Failed to rollout deployments: %v", err))
 			prStack.Status.Message = fmt.Sprintf("Rollout failed: %v", err)
-			r.Status().Update(ctx, &prStack)
+			if updateErr := r.Status().Update(ctx, &prStack); updateErr != nil {
+				ctrl.LoggerFrom(ctx).Error(updateErr, "Failed to update PRStack status after rollout failure")
+			}
 			return ctrl.Result{RequeueAfter: RequeueIntervalMedium}, err
 		}
 		r.Recorder.Event(&prStack, corev1.EventTypeNormal, EventTypeRolloutTriggered, fmt.Sprintf("PR #%s deployments rolled out successfully", prStack.Spec.PRNumber))
@@ -466,7 +468,9 @@ func (r *PRStackReconciler) handleRunning(ctx context.Context, prStack *pishopv1
 
 	if !allHealthy {
 		prStack.Status.Message = "Some services are not healthy"
-		r.Status().Update(ctx, prStack)
+		if updateErr := r.Status().Update(ctx, prStack); updateErr != nil {
+			ctrl.LoggerFrom(ctx).Error(updateErr, "Failed to update PRStack status for unhealthy services")
+		}
 	}
 
 	return ctrl.Result{RequeueAfter: RequeueIntervalLong}, nil
@@ -830,7 +834,10 @@ func (r *PRStackReconciler) updateStatusWithError(ctx context.Context, prStack *
 		Message:            fmt.Sprintf("%s: %v", message, err),
 		LastTransitionTime: metav1.Now(),
 	})
-	r.Status().Update(ctx, prStack)
+	if updateErr := r.Status().Update(ctx, prStack); updateErr != nil {
+		// Log the error but don't return it to avoid masking the original error
+		ctrl.LoggerFrom(ctx).Error(updateErr, "Failed to update PRStack status with error information")
+	}
 }
 
 // recordProvisioningError records a provisioning error event and updates status
