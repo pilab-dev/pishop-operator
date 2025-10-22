@@ -107,10 +107,58 @@ var _ = Describe("Provisioning", func() {
 					MongoDB: nil,
 				},
 			}
-
+			
 			err := reconciler.createMongoDBSecret(ctx, prStack)
 			Expect(err).To(HaveOccurred())
 			Expect(err.Error()).To(ContainSubstring("MongoDB credentials not available"))
+		})
+
+		It("should update existing secret on reactivation", func() {
+			prStack := &pishopv1alpha1.PRStack{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-pr",
+					Namespace: "default",
+				},
+				Spec: pishopv1alpha1.PRStackSpec{
+					PRNumber: "reactivate-123",
+				},
+				Status: pishopv1alpha1.PRStackStatus{
+					MongoDB: &pishopv1alpha1.MongoDBCredentials{
+						User:             "test-user",
+						Password:         "test-password",
+						ConnectionString: "mongodb://test:27017",
+						Databases:        []string{"test_db1"},
+					},
+				},
+			}
+			
+			// Create namespace first
+			ns := &corev1.Namespace{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "pr-reactivate-123-shop-pilab-hu",
+				},
+			}
+			Expect(fakeClient.Create(ctx, ns)).To(Succeed())
+
+			// Create secret first time
+			err := reconciler.createMongoDBSecret(ctx, prStack)
+			Expect(err).ToNot(HaveOccurred())
+
+			// Update credentials
+			prStack.Status.MongoDB.Password = "new-password"
+			
+			// Create/Update again (simulating reactivation)
+			err = reconciler.createMongoDBSecret(ctx, prStack)
+			Expect(err).ToNot(HaveOccurred())
+			
+			// Verify secret was updated
+			var secret corev1.Secret
+			Expect(fakeClient.Get(ctx, client.ObjectKey{
+				Name:      MongoDBSecretName,
+				Namespace: "pr-reactivate-123-shop-pilab-hu",
+			}, &secret)).To(Succeed())
+			
+			Expect(secret.StringData["password"]).To(Equal("new-password"))
 		})
 	})
 

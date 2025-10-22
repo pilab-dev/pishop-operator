@@ -40,8 +40,15 @@ const (
 	PhaseDeploying      = "Deploying"
 	PhaseRunning        = "Running"
 	PhaseInactive       = "Inactive"
+	PhaseFailed         = "Failed"
+	PhaseDegraded       = "Degraded"
 	PhaseCleaning       = "Cleaning"
 	PhaseCleaned        = "Cleaned"
+
+	// Condition types
+	ConditionTypeReady       = "Ready"
+	ConditionTypeDegraded    = "Degraded"
+	ConditionTypeProgressing = "Progressing"
 
 	// Event types
 	EventTypeInitializing         = "Initializing"
@@ -211,6 +218,7 @@ func (r *PRStackReconciler) handleInitialization(ctx context.Context, prStack *p
 	// Update status to Provisioning
 	prStack.Status.Phase = PhaseProvisioning
 	prStack.Status.Message = "Starting PR stack provisioning"
+	r.setProgressingCondition(prStack, "Initializing", "Preparing to provision infrastructure")
 	if err := r.Status().Update(ctx, prStack); err != nil {
 		return ctrl.Result{}, err
 	}
@@ -223,6 +231,7 @@ func (r *PRStackReconciler) handleProvisioning(ctx context.Context, prStack *pis
 	log.Info("Provisioning PR stack resources", "prNumber", prStack.Spec.PRNumber)
 
 	r.Recorder.Event(prStack, corev1.EventTypeNormal, EventTypeProvisioning, fmt.Sprintf("Provisioning infrastructure for PR #%s", prStack.Spec.PRNumber))
+	r.setProgressingCondition(prStack, "Provisioning", "Provisioning MongoDB, NATS, and Redis")
 
 	// Create namespace first
 	namespaceName := r.getNamespaceName(prStack.Spec.PRNumber)
@@ -255,6 +264,7 @@ func (r *PRStackReconciler) handleProvisioning(ctx context.Context, prStack *pis
 	// Move to deployment phase
 	prStack.Status.Phase = PhaseDeploying
 	prStack.Status.Message = "Resources provisioned, starting service deployment"
+	r.setProgressingCondition(prStack, "Deploying", "Deploying services to cluster")
 	if err := r.Status().Update(ctx, prStack); err != nil {
 		return ctrl.Result{}, err
 	}
@@ -264,12 +274,12 @@ func (r *PRStackReconciler) handleProvisioning(ctx context.Context, prStack *pis
 
 func (r *PRStackReconciler) createMongoDBSecret(ctx context.Context, prStack *pishopv1alpha1.PRStack) error {
 	namespaceName := r.getNamespaceName(prStack.Spec.PRNumber)
-	
+
 	// Check if MongoDB credentials are available
 	if prStack.Status.MongoDB == nil {
 		return fmt.Errorf("MongoDB credentials not available in status")
 	}
-	
+
 	secret := &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      MongoDBSecretName,
@@ -283,7 +293,7 @@ func (r *PRStackReconciler) createMongoDBSecret(ctx context.Context, prStack *pi
 		},
 	}
 
-	if err := r.Create(ctx, secret); err != nil {
+	if err := r.CreateOrUpdate(ctx, secret); err != nil {
 		return fmt.Errorf("failed to create MongoDB secret: %w", err)
 	}
 
@@ -338,6 +348,7 @@ func (r *PRStackReconciler) handleDeployment(ctx context.Context, prStack *pisho
 
 	// Deploy each service
 	var serviceStatuses []pishopv1alpha1.ServiceStatus
+	failedServices := 0
 	for _, serviceName := range services {
 		if err := r.createServiceDeployment(ctx, prStack, namespaceName, serviceName); err != nil {
 			log.Error(err, "Failed to deploy service", "service", serviceName)
@@ -346,6 +357,7 @@ func (r *PRStackReconciler) handleDeployment(ctx context.Context, prStack *pisho
 				Status:  "Failed",
 				Message: err.Error(),
 			})
+			failedServices++
 		} else {
 			serviceStatuses = append(serviceStatuses, pishopv1alpha1.ServiceStatus{
 				Name:    serviceName,
@@ -358,14 +370,57 @@ func (r *PRStackReconciler) handleDeployment(ctx context.Context, prStack *pisho
 	// Update status with service information
 	prStack.Status.Services = serviceStatuses
 
-	// Move to running phase FIRST to avoid reconciliation loop
-	prStack.Status.Phase = PhaseRunning
-	prStack.Status.Message = "PR stack is running"
+	// Determine the appropriate state based on service deployment results
+	if failedServices == len(services) {
+		// All services failed - set to Failed state
+		prStack.Status.Phase = PhaseFailed
+		prStack.Status.Message = fmt.Sprintf("All %d services failed to deploy", failedServices)
+		r.setCondition(prStack, metav1.Condition{
+			Type:               ConditionTypeReady,
+			Status:             metav1.ConditionFalse,
+			Reason:             "AllServicesFailed",
+			Message:            fmt.Sprintf("All %d services failed to deploy", failedServices),
+			LastTransitionTime: metav1.Now(),
+		})
+		r.setCondition(prStack, metav1.Condition{
+			Type:               ConditionTypeDegraded,
+			Status:             metav1.ConditionTrue,
+			Reason:             "AllServicesFailed",
+			Message:            "No services are running",
+			LastTransitionTime: metav1.Now(),
+		})
+		r.Recorder.Event(prStack, corev1.EventTypeWarning, EventTypeDeployed, fmt.Sprintf("PR #%s stack failed: all services failed to deploy", prStack.Spec.PRNumber))
+	} else if failedServices > 0 {
+		// Some services failed - set to Degraded state
+		prStack.Status.Phase = PhaseDegraded
+		prStack.Status.Message = fmt.Sprintf("Stack is degraded: %d/%d services failed", failedServices, len(services))
+		r.setCondition(prStack, metav1.Condition{
+			Type:               ConditionTypeReady,
+			Status:             metav1.ConditionTrue,
+			Reason:             "PartiallyDegraded",
+			Message:            fmt.Sprintf("%d/%d services running", len(services)-failedServices, len(services)),
+			LastTransitionTime: metav1.Now(),
+		})
+		r.setCondition(prStack, metav1.Condition{
+			Type:               ConditionTypeDegraded,
+			Status:             metav1.ConditionTrue,
+			Reason:             "ServiceFailures",
+			Message:            fmt.Sprintf("%d services failed to deploy", failedServices),
+			LastTransitionTime: metav1.Now(),
+		})
+		r.Recorder.Event(prStack, corev1.EventTypeWarning, EventTypeDeployed, fmt.Sprintf("PR #%s stack is degraded: %d/%d services failed", prStack.Spec.PRNumber, failedServices, len(services)))
+	} else {
+		// All services deployed successfully - set to Running state
+		prStack.Status.Phase = PhaseRunning
+		prStack.Status.Message = "PR stack is running"
+		r.setReadyCondition(prStack, "StackRunning", fmt.Sprintf("All %d services deployed successfully", len(serviceStatuses)))
+		r.setProgressingCondition(prStack, "Complete", "Stack deployment completed")
+		r.Recorder.Event(prStack, corev1.EventTypeNormal, EventTypeDeployed, fmt.Sprintf("PR #%s stack is now running with %d services", prStack.Spec.PRNumber, len(serviceStatuses)))
+	}
+
 	if err := r.Status().Update(ctx, prStack); err != nil {
 		return ctrl.Result{}, err
 	}
-
-	r.Recorder.Event(prStack, corev1.EventTypeNormal, EventTypeDeployed, fmt.Sprintf("PR #%s stack is now running with %d services", prStack.Spec.PRNumber, len(serviceStatuses)))
 
 	return ctrl.Result{RequeueAfter: RequeueIntervalLong}, nil
 }
@@ -741,6 +796,14 @@ func (r *PRStackReconciler) reconcileByPhase(ctx context.Context, prStack *pisho
 		return r.handleDeployment(ctx, prStack)
 	case PhaseRunning:
 		return r.handleRunning(ctx, prStack)
+	case PhaseDegraded:
+		// Degraded state - monitor and potentially retry
+		log.Info("Stack is in degraded state", "prNumber", prStack.Spec.PRNumber)
+		return r.handleRunning(ctx, prStack) // Use same logic as Running to monitor
+	case PhaseFailed:
+		// Failed state - wait for manual intervention or retry
+		log.Info("Stack is in failed state, waiting for retry", "prNumber", prStack.Spec.PRNumber)
+		return ctrl.Result{RequeueAfter: RequeueIntervalLong}, nil
 	case PhaseCleaning:
 		return r.handleCleaning(ctx, prStack)
 	default:
@@ -752,6 +815,21 @@ func (r *PRStackReconciler) reconcileByPhase(ctx context.Context, prStack *pisho
 // updateStatusWithError updates PRStack status with error information
 func (r *PRStackReconciler) updateStatusWithError(ctx context.Context, prStack *pishopv1alpha1.PRStack, message string, err error) {
 	prStack.Status.Message = fmt.Sprintf("%s: %v", message, err)
+	prStack.Status.Phase = PhaseFailed
+	r.setCondition(prStack, metav1.Condition{
+		Type:               ConditionTypeReady,
+		Status:             metav1.ConditionFalse,
+		Reason:             "Error",
+		Message:            fmt.Sprintf("%s: %v", message, err),
+		LastTransitionTime: metav1.Now(),
+	})
+	r.setCondition(prStack, metav1.Condition{
+		Type:               ConditionTypeDegraded,
+		Status:             metav1.ConditionTrue,
+		Reason:             "ReconciliationFailed",
+		Message:            fmt.Sprintf("%s: %v", message, err),
+		LastTransitionTime: metav1.Now(),
+	})
 	r.Status().Update(ctx, prStack)
 }
 
@@ -763,4 +841,52 @@ func (r *PRStackReconciler) recordProvisioningError(ctx context.Context, prStack
 		fmt.Sprintf("%s provisioning failed: %v", component, err))
 	r.updateStatusWithError(ctx, prStack, fmt.Sprintf("%s provisioning failed", component), err)
 	return ctrl.Result{RequeueAfter: RequeueIntervalMedium}, err
+}
+
+// setCondition sets or updates a condition in the PRStack status
+func (r *PRStackReconciler) setCondition(prStack *pishopv1alpha1.PRStack, condition metav1.Condition) {
+	// Find existing condition
+	for i, existingCondition := range prStack.Status.Conditions {
+		if existingCondition.Type == condition.Type {
+			// Only update if status or reason changed
+			if existingCondition.Status != condition.Status || existingCondition.Reason != condition.Reason {
+				condition.LastTransitionTime = metav1.Now()
+			} else {
+				condition.LastTransitionTime = existingCondition.LastTransitionTime
+			}
+			prStack.Status.Conditions[i] = condition
+			return
+		}
+	}
+	// Condition doesn't exist, add it
+	prStack.Status.Conditions = append(prStack.Status.Conditions, condition)
+}
+
+// setReadyCondition sets the Ready condition to True and clears degraded state
+func (r *PRStackReconciler) setReadyCondition(prStack *pishopv1alpha1.PRStack, reason, message string) {
+	r.setCondition(prStack, metav1.Condition{
+		Type:               ConditionTypeReady,
+		Status:             metav1.ConditionTrue,
+		Reason:             reason,
+		Message:            message,
+		LastTransitionTime: metav1.Now(),
+	})
+	r.setCondition(prStack, metav1.Condition{
+		Type:               ConditionTypeDegraded,
+		Status:             metav1.ConditionFalse,
+		Reason:             "Healthy",
+		Message:            "Stack is operating normally",
+		LastTransitionTime: metav1.Now(),
+	})
+}
+
+// setProgressingCondition sets the Progressing condition
+func (r *PRStackReconciler) setProgressingCondition(prStack *pishopv1alpha1.PRStack, reason, message string) {
+	r.setCondition(prStack, metav1.Condition{
+		Type:               ConditionTypeProgressing,
+		Status:             metav1.ConditionTrue,
+		Reason:             reason,
+		Message:            message,
+		LastTransitionTime: metav1.Now(),
+	})
 }
