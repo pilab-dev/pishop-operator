@@ -90,6 +90,11 @@ type PRStackReconciler struct {
 	GitHubUsername string
 	GitHubEmail    string
 	BaseDomain     string
+	// Ingress configuration
+	IngressClassName        string
+	CertManagerIssuer      string
+	TraefikEntrypoints     string
+	TraefikTLSEnabled      string
 }
 
 //+kubebuilder:rbac:groups=shop.pilab.hu,resources=prstacks,verbs=get;list;watch;create;update;patch;delete
