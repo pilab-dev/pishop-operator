@@ -367,16 +367,27 @@ func getImageTag(prStack *pishopv1alpha1.PRStack, serviceName string) string {
 func (r *PRStackReconciler) createIngress(prStack *pishopv1alpha1.PRStack, namespace, serviceName, pathPrefix string) *networkingv1.Ingress {
 	hostname := r.getDomain(prStack)
 
+	// Generate TLS secret name for automatic certificate management
+	tlsSecretName := fmt.Sprintf("%s-tls", serviceName)
+
 	ingress := &networkingv1.Ingress{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      serviceName,
 			Namespace: namespace,
 			Annotations: map[string]string{
-				"nginx.ingress.kubernetes.io/rewrite-target": "/",
-				"nginx.ingress.kubernetes.io/ssl-redirect":   "true",
+				"cert-manager.io/cluster-issuer":                    "letsencrypt-prod",
+				"traefik.ingress.kubernetes.io/router.entrypoints": "websecure",
+				"traefik.ingress.kubernetes.io/router.tls":         "true",
 			},
 		},
 		Spec: networkingv1.IngressSpec{
+			IngressClassName: func() *string { s := "traefik"; return &s }(),
+			TLS: []networkingv1.IngressTLS{
+				{
+					Hosts:      []string{hostname},
+					SecretName: tlsSecretName,
+				},
+			},
 			Rules: []networkingv1.IngressRule{
 				{
 					Host: hostname,
@@ -403,14 +414,9 @@ func (r *PRStackReconciler) createIngress(prStack *pishopv1alpha1.PRStack, names
 		},
 	}
 
-	// Add TLS configuration if a TLS secret is specified
+	// If a custom TLS secret is specified, use it instead of the auto-generated one
 	if prStack.Spec.IngressTlsSecretName != "" {
-		ingress.Spec.TLS = []networkingv1.IngressTLS{
-			{
-				Hosts:      []string{hostname},
-				SecretName: prStack.Spec.IngressTlsSecretName,
-			},
-		}
+		ingress.Spec.TLS[0].SecretName = prStack.Spec.IngressTlsSecretName
 	}
 
 	return ingress
