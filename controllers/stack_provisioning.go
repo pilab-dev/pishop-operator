@@ -367,16 +367,52 @@ func getImageTag(prStack *pishopv1alpha1.PRStack, serviceName string) string {
 func (r *PRStackReconciler) createIngress(prStack *pishopv1alpha1.PRStack, namespace, serviceName, pathPrefix string) *networkingv1.Ingress {
 	hostname := r.getDomain(prStack)
 
+	// Set default values if not configured
+	ingressClassName := r.IngressClassName
+	if ingressClassName == "" {
+		ingressClassName = "traefik"
+	}
+	certManagerIssuer := r.CertManagerIssuer
+	traefikEntrypoints := r.TraefikEntrypoints
+	if traefikEntrypoints == "" {
+		traefikEntrypoints = "websecure"
+	}
+	traefikTLSEnabled := r.TraefikTLSEnabled
+	if traefikTLSEnabled == "" {
+		traefikTLSEnabled = "true"
+	}
+
+	// Determine if we should enable TLS
+	enableTLS := prStack.Spec.IngressTlsSecretName != "" || certManagerIssuer != ""
+	
+	// Determine the TLS secret name
+	var tlsSecretName string
+	if prStack.Spec.IngressTlsSecretName != "" {
+		tlsSecretName = prStack.Spec.IngressTlsSecretName
+	} else if certManagerIssuer != "" {
+		tlsSecretName = fmt.Sprintf("%s-tls", serviceName)
+	}
+
+	// Build annotations
+	annotations := make(map[string]string)
+	if certManagerIssuer != "" {
+		annotations["cert-manager.io/cluster-issuer"] = certManagerIssuer
+	}
+	if traefikEntrypoints != "" {
+		annotations["traefik.ingress.kubernetes.io/router.entrypoints"] = traefikEntrypoints
+	}
+	if traefikTLSEnabled != "" {
+		annotations["traefik.ingress.kubernetes.io/router.tls"] = traefikTLSEnabled
+	}
+
 	ingress := &networkingv1.Ingress{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      serviceName,
-			Namespace: namespace,
-			Annotations: map[string]string{
-				"nginx.ingress.kubernetes.io/rewrite-target": "/",
-				"nginx.ingress.kubernetes.io/ssl-redirect":   "true",
-			},
+			Name:        serviceName,
+			Namespace:   namespace,
+			Annotations: annotations,
 		},
 		Spec: networkingv1.IngressSpec{
+			IngressClassName: &ingressClassName,
 			Rules: []networkingv1.IngressRule{
 				{
 					Host: hostname,
@@ -403,12 +439,12 @@ func (r *PRStackReconciler) createIngress(prStack *pishopv1alpha1.PRStack, names
 		},
 	}
 
-	// Add TLS configuration if a TLS secret is specified
-	if prStack.Spec.IngressTlsSecretName != "" {
+	// Add TLS configuration if enabled
+	if enableTLS {
 		ingress.Spec.TLS = []networkingv1.IngressTLS{
 			{
 				Hosts:      []string{hostname},
-				SecretName: prStack.Spec.IngressTlsSecretName,
+				SecretName: tlsSecretName,
 			},
 		}
 	}

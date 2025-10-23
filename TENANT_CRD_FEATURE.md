@@ -108,6 +108,21 @@ type TenantConfig struct {
     Labels      map[string]string `json:"labels,omitempty"`
     Annotations map[string]string `json:"annotations,omitempty"`
 }
+
+// BackupConfig defines the backup configuration for a tenant
+type BackupConfig struct {
+    // Enabled controls whether backups are enabled for this tenant
+    Enabled bool `json:"enabled"`
+    
+    // Schedule is the cron schedule for backups
+    Schedule string `json:"schedule,omitempty"`
+    
+    // Retention defines how long to keep backups (e.g., "30d")
+    Retention string `json:"retention,omitempty"`
+    
+    // BucketName is the MinIO bucket to store backups in
+    BucketName string `json:"bucketName,omitempty"`
+}
 ```
 
 ## Key Features
@@ -143,6 +158,34 @@ type TenantConfig struct {
 - **Monitoring**: Health checks and status reporting
 - **Maintenance**: Automated updates and maintenance windows
 - **Cleanup**: Graceful tenant decommissioning
+
+### 6. Periodical Backup Solution
+
+To ensure data safety and recoverability for production tenants, a robust periodical backup solution will be implemented. This solution will leverage Kubernetes `CronJob`s to schedule and manage backup operations.
+
+#### Backup Strategy
+
+- **Scheduled Backups**: Backups will be triggered based on a cron schedule defined in the `Tenant`'s `backupConfig.schedule`.
+- **Kubernetes Job**: Each backup operation will be executed as a Kubernetes `Job`, ensuring reliable execution.
+- **Custom Backup Image**: A dedicated Docker image will be created containing all necessary tools for the backup process, including:
+    - **MinIO Client (`mc`)**: For interacting with the MinIO object storage.
+    - **MongoDB Tools (`mongodump`)**: For creating database dumps.
+
+#### Backup Process
+
+1.  A `CronJob` resource will be created for each tenant with backups enabled.
+2.  At the scheduled time, the `CronJob` will create a `Job`.
+3.  The `Job` will run a pod with the custom backup container.
+4.  Inside the container, a script will:
+    1.  Execute `mongodump` to create a compressed archive of the tenant's database. The script will use the MongoDB connection details from the tenant's secrets.
+    2.  Use the MinIO client (`mc`) to upload the backup archive to a pre-configured MinIO bucket.
+    3.  Attach the following metadata to the uploaded backup object for easier identification and management:
+        - `tenant`: The `TenantID` of the tenant.
+        - `backup-time`: The timestamp of the backup.
+        - `backup-reason`: The reason for the backup (e.g., "scheduled", "manual"). For now, it will be "scheduled".
+        - `initiator`: Who or what initiated the backup (e.g., "cronjob", "user-request"). For now, it will be "cronjob".
+
+This approach provides a reliable and automated way to manage tenant backups, with clear metadata for tracking and restoration purposes. The restore process will be designed in a subsequent phase, leveraging the metadata to find the correct backup.
 
 ## Implementation Plan
 
@@ -201,6 +244,7 @@ spec:
     enabled: true
     schedule: "0 2 * * *"
     retention: "30d"
+    bucketName: "tenant-backups"
   tenantConfig:
     customerName: "Customer Shop Inc."
     customerEmail: "admin@customer.com"

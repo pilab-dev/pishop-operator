@@ -53,6 +53,12 @@ func main() {
 	var githubEmail string
 	var baseDomain string
 
+	// Ingress configuration
+	var ingressClassName string
+	var certManagerIssuer string
+	var traefikEntrypoints string
+	var traefikTLSEnabled string
+
 	flag.StringVar(&metricsAddr, "metrics-bind-address", ":8080", "The address the metric endpoint binds to.")
 	flag.StringVar(&probeAddr, "health-probe-bind-address", ":8081", "The address the probe endpoint binds to.")
 	flag.BoolVar(&enableLeaderElection, "leader-elect", false,
@@ -65,6 +71,10 @@ func main() {
 	flag.StringVar(&githubToken, "github-token", os.Getenv("GITHUB_TOKEN"), "GitHub token for container registry")
 	flag.StringVar(&githubEmail, "github-email", os.Getenv("GITHUB_EMAIL"), "GitHub email for container registry")
 	flag.StringVar(&baseDomain, "base-domain", getEnvOrDefault("BASE_DOMAIN", "shop.pilab.hu"), "Base domain for default PR domains (e.g., shop.pilab.hu)")
+	flag.StringVar(&ingressClassName, "ingress-class-name", getEnvOrDefault("INGRESS_CLASS_NAME", "traefik"), "Ingress class name for ingress resources")
+	flag.StringVar(&certManagerIssuer, "cert-manager-issuer", getEnvOrDefault("CERT_MANAGER_ISSUER", "letsencrypt-staging"), "Cert-manager cluster issuer for TLS certificates")
+	flag.StringVar(&traefikEntrypoints, "traefik-entrypoints", getEnvOrDefault("TRAEFIK_ENTRYPOINTS", "websecure"), "Traefik entrypoints for ingress")
+	flag.StringVar(&traefikTLSEnabled, "traefik-tls-enabled", getEnvOrDefault("TRAEFIK_TLS_ENABLED", "true"), "Enable TLS for Traefik ingress")
 
 	opts := zap.Options{
 		Development: true,
@@ -101,17 +111,21 @@ func main() {
 	}
 
 	if err = (&controllers.PRStackReconciler{
-		Client:         mgr.GetClient(),
-		Scheme:         mgr.GetScheme(),
-		Recorder:       mgr.GetEventRecorderFor("pishop-operator"),
-		MongoURI:       mongoURI,
-		MongoUsername:  mongoUsername,
-		MongoPassword:  mongoPassword,
-		BackupManager:  backupManager,
-		GitHubUsername: githubUsername,
-		GitHubToken:    githubToken,
-		GitHubEmail:    githubEmail,
-		BaseDomain:     baseDomain,
+		Client:             mgr.GetClient(),
+		Scheme:             mgr.GetScheme(),
+		Recorder:           mgr.GetEventRecorderFor("pishop-operator"),
+		MongoURI:           mongoURI,
+		MongoUsername:      mongoUsername,
+		MongoPassword:      mongoPassword,
+		BackupManager:      backupManager,
+		GitHubUsername:     githubUsername,
+		GitHubToken:        githubToken,
+		GitHubEmail:        githubEmail,
+		BaseDomain:         baseDomain,
+		IngressClassName:   ingressClassName,
+		CertManagerIssuer:  certManagerIssuer,
+		TraefikEntrypoints: traefikEntrypoints,
+		TraefikTLSEnabled:  traefikTLSEnabled,
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "PRStack")
 		os.Exit(1)
